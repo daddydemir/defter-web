@@ -1,4 +1,5 @@
 import type {
+  AdminLimits,
   AdminLog,
   AdminNote,
   AdminUser,
@@ -164,4 +165,11 @@ export const api = {
   adminDeleteUserNote: (userId: string, noteId: string) =>
     request<void>(`/admin/users/${userId}/notes/${noteId}`, { method: 'DELETE' }),
   adminDeleteNote: (noteId: string) => request<void>(`/admin/notes/${noteId}`, { method: 'DELETE' }),
+  adminSettings: () => request<AdminLimits>('/admin/settings'),
+  adminUpdateSettings: (patch: { maxNotesPerUser?: number; maxNoteContentLength?: number }) =>
+    request<AdminLimits>('/admin/settings', { method: 'PATCH', body: JSON.stringify(patch) }),
+  adminSetUserLimits: (
+    id: string,
+    patch: { maxNotes?: number | null; maxNoteChars?: number | null },
+  ) => request<{ maxNotes: number | null; maxNoteChars: number | null }>(`/admin/users/${id}/limits`, { method: 'PATCH', body: JSON.stringify(patch) }),
 }

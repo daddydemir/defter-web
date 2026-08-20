@@ -78,6 +78,13 @@ export interface AdminUser {
   createdAt: string
   noteCount: number
   friendCount: number
+  maxNotes: number | null
+  maxNoteChars: number | null
+}
+
+export interface AdminLimits {
+  maxNotesPerUser: number
+  maxNoteContentLength: number
 }
 
 export interface AdminNote {

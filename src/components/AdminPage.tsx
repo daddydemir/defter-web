@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
-import type { AdminLog, AdminNote, AdminUser, AdminUserDetail } from '../types'
+import type { AdminLimits, AdminLog, AdminNote, AdminUser, AdminUserDetail } from '../types'
 import { cn, excerpt, timeAgo } from '../lib/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import {
   ArrowLeft,
+  AlertTriangle,
   Eye,
   EyeOff,
   FileText,
+  Gauge,
   Globe,
   KeyRound,
   Link2,
   Loader2,
   RefreshCw,
+  Save,
   Search,
   ShieldCheck,
   ShieldOff,
@@ -24,7 +27,7 @@ import {
   X,
 } from 'lucide-react'
 
-type Tab = 'users' | 'notes' | 'logs'
+type Tab = 'users' | 'notes' | 'logs' | 'limits'
 
 type ConfirmAction =
   | { type: 'ban'; user: AdminUser }
@@ -147,6 +150,16 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<ConfirmAction>(null)
   const [resetUser, setResetUser] = useState<AdminUser | null>(null)
+  const [limits, setLimits] = useState<AdminLimits | null>(null)
+
+  const loadSettings = useCallback(async () => {
+    setError(null)
+    try {
+      setLimits(await api.adminSettings())
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }, [])
 
   const loadUsers = useCallback(async () => {
     setError(null)
@@ -156,6 +169,15 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
       setError((err as Error).message)
     }
   }, [])
+
+  const saveUserLimits = useCallback(
+    async (id: string, patch: { maxNotes?: number | null; maxNoteChars?: number | null }) => {
+      const r = await api.adminSetUserLimits(id, patch)
+      setDetail((d) => (d ? { ...d, user: { ...d.user, maxNotes: r.maxNotes, maxNoteChars: r.maxNoteChars } } : d))
+      await loadUsers()
+    },
+    [loadUsers],
+  )
 
   const loadNotes = useCallback(async (q: string) => {
     setError(null)
@@ -192,7 +214,8 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
     loadUsers()
     loadNotes('')
     loadLogs('', 'all')
-  }, [loadUsers, loadNotes, loadLogs])
+    loadSettings()
+  }, [loadUsers, loadNotes, loadLogs, loadSettings])
 
   const openDetail = async (id: string) => {
     setDetailId(id)
@@ -297,6 +320,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 ['users', 'Kullanıcılar'],
                 ['notes', 'Notlar'],
                 ['logs', 'Günlükler'],
+                ['limits', 'Limitler'],
               ] as [Tab, string][]
             ).map(([key, label]) => (
               <button
@@ -340,6 +364,9 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 onRole={(makeAdmin) => setConfirm({ type: 'role', user: detail.user, makeAdmin })}
                 onDeleteNote={(n) => setConfirm({ type: 'deleteNote', note: n, userId: detail.user.id })}
                 onResetPassword={() => setResetUser(detail.user)}
+                globalLimits={limits}
+                onSaveLimits={(patch) => saveUserLimits(detail.user.id, patch)}
+                inputCls={inputCls}
               />
             )
           ) : tab === 'users' ? (
@@ -349,6 +376,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
               onQueryChange={setUsersQuery}
               busy={busy}
               meId={meId}
+              limits={limits}
               onOpenDetail={openDetail}
               onResetPassword={setResetUser}
               onBan={(u) => setConfirm({ type: 'ban', user: u })}
@@ -368,7 +396,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
               onDelete={(n) => setConfirm({ type: 'deleteNote', note: n })}
               inputCls={inputCls}
             />
-          ) : (
+          ) : tab === 'logs' ? (
             <LogsTab
               logs={logs}
               query={logsQuery}
@@ -384,6 +412,15 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
               onRefresh={() => loadLogs(logsQuery, logsSuccess)}
               busy={busy}
               inputCls={inputCls}
+            />
+          ) : (
+            <LimitsTab
+              limits={limits}
+              inputCls={inputCls}
+              onSaved={() => {
+                loadUsers()
+                loadLogs(logsQuery, logsSuccess)
+              }}
             />
           )}
         </div>
@@ -444,6 +481,7 @@ function UsersTab({
   onQueryChange,
   busy,
   meId,
+  limits,
   onOpenDetail,
   onResetPassword,
   onBan,
@@ -456,6 +494,7 @@ function UsersTab({
   onQueryChange: (q: string) => void
   busy: boolean
   meId: string
+  limits: AdminLimits | null
   onOpenDetail: (id: string) => void
   onResetPassword: (u: AdminUser) => void
   onBan: (u: AdminUser) => void
@@ -463,6 +502,7 @@ function UsersTab({
   onRole: (u: AdminUser, makeAdmin: boolean) => void
   inputCls: string
 }) {
+  const effNoteLimit = (u: AdminUser): number | null => u.maxNotes ?? limits?.maxNotesPerUser ?? null
   return (
     <div>
       <div className="relative mb-4 max-w-md">
@@ -507,7 +547,27 @@ function UsersTab({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sub">{u.email}</td>
-                    <td className="px-4 py-3 text-center tabular-nums text-ink">{u.noteCount}</td>
+                    <td className="px-4 py-3 text-center tabular-nums">
+                      {(() => {
+                        const eff = effNoteLimit(u)
+                        const over = eff !== null && u.noteCount > eff
+                        return (
+                          <span
+                            className={cn('inline-flex items-center gap-1', over ? 'font-semibold text-red-500' : 'text-ink')}
+                            title={
+                              over
+                                ? `Not limiti aşıldı (limit: ${eff?.toLocaleString('tr-TR')})`
+                                : eff !== null
+                                  ? `Limit: ${eff.toLocaleString('tr-TR')}`
+                                  : undefined
+                            }
+                          >
+                            {u.noteCount}
+                            {over && <AlertTriangle className="h-3.5 w-3.5" />}
+                          </span>
+                        )
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-center tabular-nums text-ink">{u.friendCount}</td>
                     <td className="px-4 py-3">
                       <StatusBadge banned={!!u.bannedAt} isAdmin={u.isAdmin} />
@@ -598,8 +658,20 @@ function UsersTab({
                   </div>
                 </div>
                 <p className="mt-2 text-[11px] text-sub">
-                  {u.noteCount} not · {u.friendCount} arkadaş ·{' '}
-                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString('tr-TR') : ''}
+                  {(() => {
+                    const eff = effNoteLimit(u)
+                    const over = eff !== null && u.noteCount > eff
+                    return (
+                      <>
+                        <span className={cn(over && 'font-semibold text-red-500')}>
+                          {u.noteCount} not
+                        </span>
+                        {over && ` (limit ${eff?.toLocaleString('tr-TR')})`}
+                        <span> · {u.friendCount} arkadaş · </span>
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('tr-TR') : ''}
+                      </>
+                    )
+                  })()}
                 </p>
                 <div className="mt-2 flex items-center gap-1.5 border-t border-edge pt-2">
                   <button
@@ -922,28 +994,198 @@ function LogsTab({
   )
 }
 
+function LimitsTab({
+  limits,
+  onSaved,
+  inputCls,
+}: {
+  limits: AdminLimits | null
+  onSaved: () => void
+  inputCls: string
+}) {
+  const [notes, setNotes] = useState('')
+  const [chars, setChars] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!limits) return
+    setNotes(String(limits.maxNotesPerUser))
+    setChars(String(limits.maxNoteContentLength))
+    setSaved(false)
+  }, [limits])
+
+  const save = async () => {
+    setError(null)
+    setSaved(false)
+    const n = Number(notes)
+    const c = Number(chars)
+    if (!Number.isInteger(n) || n < 1 || n > 100000) {
+      setError('Not sayısı 1-100.000 arasında olmalıdır')
+      return
+    }
+    if (!Number.isInteger(c) || c < 100 || c > 2000000) {
+      setError('İçerik uzunluğu 100-2.000.000 arasında olmalıdır')
+      return
+    }
+    setBusy(true)
+    try {
+      await api.adminUpdateSettings({ maxNotesPerUser: n, maxNoteContentLength: c })
+      setSaved(true)
+      onSaved()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="rounded-xl border border-edge bg-surface p-4">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-sub">
+          <Gauge className="h-3.5 w-3.5" />
+          Genel (Varsayılan) Limitler
+        </h3>
+        <p className="mt-1.5 text-[11px] text-sub/80">
+          Tüm kullanıcılar için geçerli varsayılan sınırlar. Kişisel sınırı olmayan kullanıcılar bu değerleri kullanır.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-sub">
+              Maks. not sayısı (kullanıcı başına)
+            </label>
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              inputMode="numeric"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-sub">
+              Maks. not içerik uzunluğu (karakter)
+            </label>
+            <input
+              value={chars}
+              onChange={(e) => setChars(e.target.value)}
+              inputMode="numeric"
+              className={inputCls}
+            />
+          </div>
+        </div>
+        {error && <div className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{error}</div>}
+        {saved && (
+          <div className="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
+            Genel limitler güncellendi
+          </div>
+        )}
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={save}
+            disabled={busy}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <Save className="h-3.5 w-3.5" />
+            Kaydet
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-edge bg-surface p-4">
+        <h3 className="text-[11px] font-semibold uppercase tracking-widest text-sub">Nasıl çalışır?</h3>
+        <ul className="mt-2 space-y-1 text-[11px] text-sub/80">
+          <li>• Kullanıcı başına not sayısı ve not içerik uzunluğu sınırları kötüye kullanımı önler.</li>
+          <li>• "Kullanıcılar" sekmesinden bir kullanıcının detayına girerek yalnızca o kullanıcıya özel sınır belirleyebilirsiniz.</li>
+          <li>• Kişisel sınır belirlenmemişse genel (varsayılan) değer kullanılır.</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 function UserDetailView({
   detail,
   busy,
   meId,
+  globalLimits,
+  onSaveLimits,
   onBack,
   onBan,
   onUnban,
   onRole,
   onDeleteNote,
   onResetPassword,
+  inputCls,
 }: {
   detail: AdminUserDetail
   busy: boolean
   meId: string
+  globalLimits: AdminLimits | null
+  onSaveLimits: (patch: { maxNotes?: number | null; maxNoteChars?: number | null }) => Promise<void>
   onBack: () => void
   onBan: () => void
   onUnban: () => void
   onRole: (makeAdmin: boolean) => void
   onDeleteNote: (n: AdminUserDetail['notes'][number]) => void
   onResetPassword: () => void
+  inputCls: string
 }) {
   const { user, notes, friends } = detail
+
+  const [limitNotes, setLimitNotes] = useState(user.maxNotes === null ? '' : String(user.maxNotes))
+  const [limitChars, setLimitChars] = useState(user.maxNoteChars === null ? '' : String(user.maxNoteChars))
+  const [limitBusy, setLimitBusy] = useState(false)
+  const [limitError, setLimitError] = useState<string | null>(null)
+  const [limitSaved, setLimitSaved] = useState(false)
+
+  useEffect(() => {
+    setLimitNotes(user.maxNotes === null ? '' : String(user.maxNotes))
+    setLimitChars(user.maxNoteChars === null ? '' : String(user.maxNoteChars))
+    setLimitError(null)
+    setLimitSaved(false)
+  }, [user.id, user.maxNotes, user.maxNoteChars])
+
+  const effNotes = user.maxNotes ?? globalLimits?.maxNotesPerUser ?? null
+  const effChars = user.maxNoteChars ?? globalLimits?.maxNoteContentLength ?? null
+
+  const saveLimits = async () => {
+    setLimitError(null)
+    setLimitSaved(false)
+    const patch: { maxNotes?: number | null; maxNoteChars?: number | null } = {}
+    if (limitNotes.trim() === '') {
+      patch.maxNotes = null
+    } else {
+      const n = Number(limitNotes)
+      if (!Number.isInteger(n) || n < 1 || n > 100000) {
+        setLimitError('Not sayısı 1-100.000 arasında olmalıdır')
+        return
+      }
+      patch.maxNotes = n
+    }
+    if (limitChars.trim() === '') {
+      patch.maxNoteChars = null
+    } else {
+      const c = Number(limitChars)
+      if (!Number.isInteger(c) || c < 100 || c > 2000000) {
+        setLimitError('İçerik uzunluğu 100-2.000.000 arasında olmalıdır')
+        return
+      }
+      patch.maxNoteChars = c
+    }
+    setLimitBusy(true)
+    try {
+      await onSaveLimits(patch)
+      setLimitSaved(true)
+    } catch (err) {
+      setLimitError((err as Error).message)
+    } finally {
+      setLimitBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <button
@@ -1042,6 +1284,82 @@ function UserDetailView({
           </div>
         </div>
       </div>
+
+      <section className="rounded-xl border border-edge bg-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-sub">
+            <Gauge className="h-3.5 w-3.5" />
+            Not Limitleri
+          </h3>
+          <span className="text-[11px] text-sub">
+            Efektif:{' '}
+            <span className="font-medium text-ink">{effNotes !== null ? effNotes.toLocaleString('tr-TR') : '—'}</span> not ·{' '}
+            <span className="font-medium text-ink">{effChars !== null ? effChars.toLocaleString('tr-TR') : '—'}</span> karakter
+          </span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-sub/80">
+          Boş bırakılan alan genel varsayılanı kullanır. Kullanım:{' '}
+          <span className={cn('font-medium', notes.length > (effNotes ?? Infinity) ? 'text-red-500' : 'text-ink')}>
+            {notes.length.toLocaleString('tr-TR')} / {effNotes !== null ? effNotes.toLocaleString('tr-TR') : '—'}
+          </span>{' '}
+          not
+          {notes.length > (effNotes ?? Infinity) && ' — limit aşıldı!'}
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-sub">
+              Maks. not sayısı (kişisel)
+            </label>
+            <input
+              value={limitNotes}
+              onChange={(e) => setLimitNotes(e.target.value)}
+              inputMode="numeric"
+              placeholder={globalLimits ? `Varsayılan: ${globalLimits.maxNotesPerUser.toLocaleString('tr-TR')}` : 'Varsayılan'}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-sub">
+              Maks. içerik uzunluğu (karakter)
+            </label>
+            <input
+              value={limitChars}
+              onChange={(e) => setLimitChars(e.target.value)}
+              inputMode="numeric"
+              placeholder={globalLimits ? `Varsayılan: ${globalLimits.maxNoteContentLength.toLocaleString('tr-TR')}` : 'Varsayılan'}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        {limitError && (
+          <div className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{limitError}</div>
+        )}
+        {limitSaved && (
+          <div className="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
+            Limitler kaydedildi
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <button
+            onClick={() => {
+              setLimitNotes('')
+              setLimitChars('')
+            }}
+            className="rounded-lg bg-surface2 px-3 py-2 text-xs font-medium text-sub ring-1 ring-edge transition-colors hover:text-ink"
+          >
+            Varsayılana dön
+          </button>
+          <button
+            onClick={saveLimits}
+            disabled={limitBusy}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {limitBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <Save className="h-3.5 w-3.5" />
+            Kaydet
+          </button>
+        </div>
+      </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-xl border border-edge bg-surface p-4">

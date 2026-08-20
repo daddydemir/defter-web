@@ -260,7 +260,10 @@ export default function App() {
           }),
         )
       })
-      .catch(() => reload())
+      .catch((err) => {
+        setError((err as Error).message)
+        reload()
+      })
   }, [reload, folders])
 
   const createNote = useCallback(async () => {
