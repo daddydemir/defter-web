@@ -284,7 +284,7 @@ function RichEditorInner({
   collabNoteId?: string | null
 }) {
   const [editor, setEditor] = useState<Editor | null>(null)
-  const [slash, setSlash] = useState<{ text: string; x: number; y: number; top: number } | null>(null)
+  const [slash, setSlash] = useState<{ text: string; from: number; x: number; y: number; top: number } | null>(null)
   const [slashPos, setSlashPos] = useState<{ x: number; y: number } | null>(null)
   const [slashIndex, setSlashIndex] = useState(0)
   const [imageDialogOpen, setImageDialogOpen] = useState(false)
@@ -302,6 +302,8 @@ function RichEditorInner({
   onChangeRef.current = onChange
   const slashRef = useRef(slash)
   slashRef.current = slash
+  const slashIndexRef = useRef(slashIndex)
+  slashIndexRef.current = slashIndex
   const codeLangRef = useRef(codeLangPos)
   codeLangRef.current = codeLangPos
   const editorRef = useRef<Editor | null>(null)
@@ -327,8 +329,13 @@ function RichEditorInner({
       }
       const $from = state.selection.$from
       const textBefore = state.doc.textBetween($from.start(), from, '\n')
-      const m = /^\/[a-zA-ZçğıöşüÇĞİÖŞÜ0-9]*$/.exec(textBefore)
-      if (!m) {
+      const slashIdx = textBefore.lastIndexOf('/')
+      if (slashIdx === -1) {
+        setSlash(null)
+        return
+      }
+      const query = textBefore.slice(slashIdx + 1)
+      if (!/^[a-zA-ZçğıöşüÇĞİÖŞÜ0-9]*$/.test(query)) {
         setSlash(null)
         return
       }
@@ -336,7 +343,13 @@ function RichEditorInner({
       const width = Math.min(280, window.innerWidth - 16)
       const x = Math.max(8, Math.min(coords.left, window.innerWidth - width - 8))
       setSlashIndex(0)
-      setSlash({ text: m[0].slice(1), x, y: coords.bottom + 6, top: coords.top })
+      setSlash({
+        text: query,
+        from: $from.start() + slashIdx,
+        x,
+        y: coords.bottom + 6,
+        top: coords.top,
+      })
     }
 
     const updateCodeLang = (ed: Editor) => {
@@ -381,7 +394,7 @@ function RichEditorInner({
         if (event.key === 'Enter') {
           if (items.length > 0) {
             event.preventDefault()
-            runItem(items[Math.min(slashIndex, items.length - 1)], editorRef.current!)
+            runItem(items[Math.min(slashIndexRef.current, items.length - 1)], editorRef.current!)
             return true
           }
           setSlash(null)
@@ -479,9 +492,15 @@ function RichEditorInner({
 
   const runItem = (item: SlashItem, ed: Editor) => {
     const { state } = ed
-    const { from } = state.selection
-    const len = state.doc.textBetween(state.selection.$from.start(), from, '\n').length
-    ed.chain().focus().deleteRange({ from: from - len, to: from }).run()
+    const from = state.selection.from
+    const s = slashRef.current
+    const slashFrom =
+      s && typeof s.from === 'number'
+        ? s.from
+        : from - state.doc.textBetween(state.selection.$from.start(), from, '\n').length
+    if (from > slashFrom) {
+      ed.chain().focus().deleteRange({ from: slashFrom, to: from }).run()
+    }
     item.run(ed)
     setSlash(null)
   }

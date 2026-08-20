@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
-import type { AdminLimits, AdminLog, AdminNote, AdminUser, AdminUserDetail } from '../types'
+import type { AdminLimits, AdminLog, AdminNote, AdminPublicShare, AdminShareView, AdminUser, AdminUserDetail } from '../types'
 import { cn, excerpt, timeAgo } from '../lib/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import {
   ArrowLeft,
   AlertTriangle,
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
   Eye,
   EyeOff,
   FileText,
@@ -781,6 +784,7 @@ function NotesTab({
                   <th className="px-4 py-3 font-medium">Başlık</th>
                   <th className="px-4 py-3 font-medium">Sahip</th>
                   <th className="px-4 py-3 font-medium">Paylaşım</th>
+                  <th className="px-4 py-3 text-right font-medium">Görüntülenme</th>
                   <th className="px-4 py-3 font-medium">Güncellenme</th>
                   <th className="px-4 py-3 text-right font-medium">İşlem</th>
                 </tr>
@@ -804,6 +808,19 @@ function NotesTab({
                     </td>
                     <td className="px-4 py-3">
                       <ShareChips publicShared={n.publicShared} sharedWith={n.sharedWith} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {n.publicShared ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs tabular-nums text-sub"
+                          title="Genel bağlantı görüntülenme sayısı"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          {n.viewCount.toLocaleString('tr-TR')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-sub/50">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-sub">{timeAgo(n.updatedAt)}</td>
                     <td className="px-4 py-3 text-right">
@@ -831,6 +848,12 @@ function NotesTab({
                   <ShareChips publicShared={n.publicShared} sharedWith={n.sharedWith} />
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 border-t border-edge pt-2 text-[11px] text-sub">
+                  {n.publicShared && (
+                    <span className="inline-flex items-center gap-1 tabular-nums" title="Genel bağlantı görüntülenme sayısı">
+                      <Eye className="h-3 w-3" />
+                      {n.viewCount.toLocaleString('tr-TR')} görüntülenme
+                    </span>
+                  )}
                   <span className="font-medium text-ink">{n.username}</span>
                   {n.userBanned && <span className="text-red-500">· Engelli</span>}
                   <span>· {timeAgo(n.updatedAt)}</span>
@@ -1106,6 +1129,118 @@ function LimitsTab({
   )
 }
 
+function PublicSharesCard({ shares }: { shares: AdminPublicShare[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [views, setViews] = useState<AdminShareView[] | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const toggle = async (noteId: string) => {
+    if (expanded === noteId) {
+      setExpanded(null)
+      setViews(null)
+      return
+    }
+    setExpanded(noteId)
+    setViews(null)
+    setBusy(true)
+    try {
+      setViews(await api.adminNoteViews(noteId))
+    } catch (err) {
+      setViews(null)
+      console.error(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-edge bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-sub">
+          <Globe className="h-3.5 w-3.5" />
+          Genel Paylaşımlar ({shares.length})
+        </h3>
+        <span className="text-[11px] text-sub">Herkese açık bağlantısı olan notlar ve görüntülenme istatistikleri</span>
+      </div>
+
+      {shares.length === 0 ? (
+        <p className="py-4 text-sm text-sub/70">Bu kullanıcının genel paylaşımlı notu yok.</p>
+      ) : (
+        <div className="mt-3 space-y-1.5">
+          {shares.map((s) => (
+            <div key={s.noteId} className="rounded-lg border border-edge/60 bg-surface2/40">
+              <button
+                onClick={() => toggle(s.noteId)}
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface2"
+              >
+                <span className={cn('text-sub transition-transform', expanded === s.noteId && 'rotate-90')}>
+                  {expanded === s.noteId ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{s.title || 'Başlıksız'}</span>
+                <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-sub">
+                  <Eye className="h-3.5 w-3.5" />
+                  {s.viewCount.toLocaleString('tr-TR')}
+                </span>
+                <span className="hidden shrink-0 items-center gap-1 text-xs tabular-nums text-sub sm:flex">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  {s.uniqueIpCount.toLocaleString('tr-TR')} IP
+                </span>
+                <span className="hidden shrink-0 text-[11px] text-sub md:block">
+                  {s.lastViewAt ? `Son: ${timeAgo(s.lastViewAt)}` : 'Hiç görüntülenmedi'}
+                </span>
+              </button>
+
+              {expanded === s.noteId && (
+                <div className="border-t border-edge/60 px-4 py-3">
+                  <div className="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-sub">
+                    <span>
+                      Görüntülenme: <span className="font-semibold text-ink">{s.viewCount.toLocaleString('tr-TR')}</span>
+                    </span>
+                    <span>
+                      Farklı IP: <span className="font-semibold text-ink">{s.uniqueIpCount.toLocaleString('tr-TR')}</span>
+                    </span>
+                    <span>
+                      İlk: <span className="font-medium text-ink">{s.firstViewAt ? timeAgo(s.firstViewAt) : '—'}</span>
+                    </span>
+                    <span>
+                      Son: <span className="font-medium text-ink">{s.lastViewAt ? timeAgo(s.lastViewAt) : '—'}</span>
+                    </span>
+                  </div>
+
+                  {busy ? (
+                    <div className="flex items-center gap-2 py-2 text-xs text-sub">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Yükleniyor…
+                    </div>
+                  ) : views === null ? (
+                    <p className="py-1 text-xs text-red-500">Son görüntülemeler yüklenemedi.</p>
+                  ) : views.length === 0 ? (
+                    <p className="py-1 text-xs text-sub/70">Görüntülenme kaydı yok.</p>
+                  ) : (
+                    <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                      {views.map((v) => (
+                        <div key={v.id} className="flex items-start gap-2 rounded-md px-1 py-1 text-[11px]">
+                          <span className="w-32 shrink-0 tabular-nums text-sub">
+                            {new Date(v.viewedAt).toLocaleString('tr-TR')}
+                          </span>
+                          <span className="w-28 shrink-0 tabular-nums text-sub">{v.ip ?? '—'}</span>
+                          <span className="min-w-0 flex-1 truncate text-sub/70" title={v.userAgent ?? ''}>
+                            {v.userAgent || '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function UserDetailView({
   detail,
   busy,
@@ -1360,6 +1495,8 @@ function UserDetailView({
           </button>
         </div>
       </section>
+
+      <PublicSharesCard shares={detail.publicShares} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-xl border border-edge bg-surface p-4">

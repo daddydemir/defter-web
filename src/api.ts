@@ -2,6 +2,7 @@ import type {
   AdminLimits,
   AdminLog,
   AdminNote,
+  AdminShareView,
   AdminUser,
   AdminUserDetail,
   AuthLog,
@@ -149,6 +150,7 @@ export const api = {
   adminUsers: () => request<AdminUser[]>('/admin/users'),
   adminNotes: (q: string) => request<AdminNote[]>(`/admin/notes?q=${encodeURIComponent(q)}`),
   adminUserDetail: (id: string) => request<AdminUserDetail>(`/admin/users/${id}`),
+  adminNoteViews: (noteId: string) => request<AdminShareView[]>(`/admin/notes/${noteId}/views`),
   adminBan: (id: string) => request<{ banned: boolean }>(`/admin/users/${id}/ban`, { method: 'PATCH' }),
   adminUnban: (id: string) => request<{ banned: boolean }>(`/admin/users/${id}/unban`, { method: 'PATCH' }),
   adminSetRole: (id: string, isAdmin: boolean) =>

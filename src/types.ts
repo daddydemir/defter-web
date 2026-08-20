@@ -98,7 +98,25 @@ export interface AdminNote {
   username: string
   userBanned: boolean
   publicShared: boolean
+  viewCount: number
   sharedWith: { username: string; permission: Permission }[]
+}
+
+export interface AdminPublicShare {
+  noteId: string
+  title: string
+  shareToken: string
+  viewCount: number
+  uniqueIpCount: number
+  firstViewAt: string | null
+  lastViewAt: string | null
+}
+
+export interface AdminShareView {
+  id: string
+  viewedAt: string
+  ip: string | null
+  userAgent: string | null
 }
 
 export interface AuthLog {
@@ -128,5 +146,6 @@ export interface AdminUserDetail {
     publicShared: boolean
     sharedWith: { username: string; permission: Permission }[]
   }[]
+  publicShares: AdminPublicShare[]
   friends: { userId: string; username: string; since: string }[]
 }
