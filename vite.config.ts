@@ -10,8 +10,8 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'favicon-16.png', 'favicon-32.png'],
       manifest: {
-        name: 'Notes',
-        short_name: 'Notes',
+        name: 'Defter',
+        short_name: 'Defter',
         description: 'Notlarınız tek yerde',
         lang: 'tr',
         start_url: '/',

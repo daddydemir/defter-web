@@ -26,12 +26,20 @@ export function PublicNote({ token }: { token: string }) {
     }
   }, [token])
 
+  // Sekme başlığı: "Defter | not başlığı"
+  useEffect(() => {
+    document.title = note ? `Defter | ${note.title.trim() || 'Başlıksız'}` : 'Defter'
+    return () => {
+      document.title = 'Defter'
+    }
+  }, [note])
+
   return (
     <div className="flex min-h-dvh flex-col bg-base text-ink">
       <header className="sticky top-0 z-10 border-b border-edge bg-base/95 backdrop-blur">
         <div className="mx-auto flex max-w-[46rem] items-center gap-2 px-4 py-3">
           <Logo className="h-6 w-6" />
-          <span className="text-sm font-semibold tracking-tight">Notes</span>
+          <span className="text-sm font-semibold tracking-tight">Defter</span>
           <a
             href="/"
             className="ml-auto rounded-lg px-2.5 py-1.5 text-xs font-medium text-sub transition-colors hover:bg-surface2 hover:text-ink"
@@ -49,7 +57,7 @@ export function PublicNote({ token }: { token: string }) {
               href="/"
               className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
-              Notes'a git
+              Defter'e git
             </a>
           </div>
         ) : !note ? (

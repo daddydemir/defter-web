@@ -42,7 +42,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <Logo className="h-14 w-14 drop-shadow-lg" />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Notes</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Defter</h1>
             <p className="mt-1 text-sm text-sub">Notlarınız tek yerde</p>
           </div>
         </div>
