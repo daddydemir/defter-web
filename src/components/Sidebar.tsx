@@ -4,6 +4,7 @@ import { cn } from '../lib/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Logo } from './Logo'
 import {
+  BarChart3,
   Check,
   ChevronRight,
   FilePlus2,
@@ -48,6 +49,7 @@ interface SidebarProps {
   friendReqCount?: number
   onOpenAdmin?: () => void
   onOpenSettings?: () => void
+  onOpenAnalytics?: () => void
   isAdmin?: boolean
 }
 
@@ -78,6 +80,7 @@ export function Sidebar(props: SidebarProps) {
     friendReqCount,
     onOpenAdmin,
     onOpenSettings,
+    onOpenAnalytics,
     isAdmin,
   } = props
 
@@ -85,7 +88,7 @@ export function Sidebar(props: SidebarProps) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <Logo className="h-8 w-8" />
-        <span className="text-[15px] font-semibold tracking-tight">Notes</span>
+        <span className="text-[15px] font-semibold tracking-tight">Defter</span>
         <button
           onClick={onToggleTheme}
           className="ml-auto rounded-lg p-2 text-sub transition-colors hover:bg-surface2 hover:text-ink"
@@ -102,14 +105,14 @@ export function Sidebar(props: SidebarProps) {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
-          New note
+          Yeni not
         </button>
       </div>
 
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
         <NavItem
           icon={<FilePlus2 className="h-4 w-4" />}
-          label="All notes"
+          label="Tüm notlar"
           count={noteCount}
           active={view === 'all' && !activeFolder && !activeTag}
           onClick={() => {
@@ -121,7 +124,7 @@ export function Sidebar(props: SidebarProps) {
         />
         <NavItem
           icon={<ChevronRight className="h-4 w-4" />}
-          label="Pinned"
+          label="İğnelenenler"
           active={view === 'pinned'}
           onClick={() => {
             onSelectView(view === 'pinned' ? 'all' : 'pinned')
@@ -135,6 +138,12 @@ export function Sidebar(props: SidebarProps) {
           badge={friendReqCount}
           onClick={onOpenFriends}
         />
+        <NavItem
+          icon={<BarChart3 className="h-4 w-4" />}
+          label="Paylaşım Analizi"
+          active={false}
+          onClick={() => onOpenAnalytics?.()}
+        />
         {isAdmin && (
           <NavItem
             icon={<ShieldCheck className="h-4 w-4" />}
@@ -144,7 +153,7 @@ export function Sidebar(props: SidebarProps) {
           />
         )}
 
-        <SectionLabel label="Folders" />
+        <SectionLabel label="Klasörler" />
         {folders.map((folder) => (
           <FolderRow
             key={folder.id}
@@ -160,12 +169,12 @@ export function Sidebar(props: SidebarProps) {
           />
         ))}
         <InlineCreate
-          placeholder="New folder"
+          placeholder="Yeni klasör"
           onSubmit={onCreateFolder}
           icon={<FolderIcon className="h-4 w-4" />}
         />
 
-        <SectionLabel label="Tags" />
+        <SectionLabel label="Etiketler" />
         {tags.map((tag) => (
           <TagRow
             key={tag.id}
@@ -179,10 +188,10 @@ export function Sidebar(props: SidebarProps) {
             onDelete={onDeleteTag}
           />
         ))}
-        <InlineCreate placeholder="New tag" onSubmit={onCreateTag} icon={<TagIcon className="h-4 w-4" />} />
+        <InlineCreate placeholder="Yeni etiket" onSubmit={onCreateTag} icon={<TagIcon className="h-4 w-4" />} />
       </nav>
 
-      <div className="border-t border-edge px-4 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 text-[11px] text-sub">{noteCount} notes</div>
+      <div className="border-t border-edge px-4 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 text-[11px] text-sub">{noteCount} not</div>
       {(userName || userEmail) && (
         <div className="flex items-center gap-2 border-t border-edge px-4 py-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white">

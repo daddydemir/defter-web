@@ -149,3 +149,26 @@ export interface AdminUserDetail {
   publicShares: AdminPublicShare[]
   friends: { userId: string; username: string; since: string }[]
 }
+
+export interface ShareNoteStat {
+  noteId: string
+  title: string
+  shareToken: string
+  viewCount: number
+  uniqueIpCount: number
+  firstViewAt: string | null
+  lastViewAt: string | null
+}
+
+export interface DailyViewsPoint {
+  day: string
+  views: number
+}
+
+export interface ShareAnalytics {
+  totalViews: number
+  totalUniqueIps: number
+  todayViews: number
+  notes: ShareNoteStat[]
+  daily: DailyViewsPoint[]
+}

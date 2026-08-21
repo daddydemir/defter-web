@@ -6,6 +6,7 @@ import type {
   AdminUser,
   AdminUserDetail,
   AuthLog,
+  DailyViewsPoint,
   Folder,
   Friend,
   FriendRequests,
@@ -13,6 +14,7 @@ import type {
   Note,
   Permission,
   PublicNote,
+  ShareAnalytics,
   ShareEntry,
   Tag,
 } from './types'
@@ -134,6 +136,10 @@ export const api = {
     request<{ shareToken: string }>(`/notes/${noteId}/share`, { method: 'POST' }),
   disableNoteShare: (noteId: string) => request<void>(`/notes/${noteId}/share`, { method: 'DELETE' }),
   fetchPublicNote: (token: string) => request<PublicNote>(`/share/${encodeURIComponent(token)}`),
+
+  analytics: () => request<ShareAnalytics>('/analytics'),
+  analyticsNoteDaily: (noteId: string, days: number) =>
+    request<DailyViewsPoint[]>(`/analytics/notes/${encodeURIComponent(noteId)}/daily?days=${days}`),
 
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ updated: boolean }>('/auth/me/password', {

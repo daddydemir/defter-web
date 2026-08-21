@@ -14,6 +14,7 @@ import { AuthScreen } from './components/AuthScreen'
 import { FriendsDialog } from './components/FriendsDialog'
 import { AdminPage } from './components/AdminPage'
 import { SettingsPage } from './components/SettingsPage'
+import { ShareAnalyticsPage } from './components/ShareAnalyticsPage'
 import { PublicNote } from './components/PublicNote'
 import { X } from 'lucide-react'
 
@@ -46,6 +47,7 @@ export default function App() {
   const [friendToast, setFriendToast] = useState<{ id: string; username: string } | null>(null)
   const [adminOpen, setAdminOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   )
@@ -73,6 +75,7 @@ export default function App() {
     setFriendReqCount(0)
     setFriendToast(null)
     setSettingsOpen(false)
+    setAnalyticsOpen(false)
   }, [])
 
   // Kayıtlı token'ı arka planda doğrula; geçersizse oturumu kapat
@@ -217,6 +220,11 @@ export default function App() {
   }, [notes, view, filterFolder, filterTag, debouncedSearch])
 
   const selected = notes.find((n) => n.id === selectedId) ?? null
+
+  // Tarayıcı sekmesi başlığı: "Defter | not başlığı"
+  useEffect(() => {
+    document.title = selected ? `Defter | ${selected.title.trim() || 'Başlıksız'}` : 'Defter'
+  }, [selected?.id, selected?.title])
 
   const toggleTheme = useCallback(() => {
     setTheme((t) => {
@@ -433,6 +441,10 @@ export default function App() {
       setSidebarOpen(false)
       setSettingsOpen(true)
     },
+    onOpenAnalytics: () => {
+      setSidebarOpen(false)
+      setAnalyticsOpen(true)
+    },
     isAdmin: auth?.user.isAdmin === true,
   }
 
@@ -464,6 +476,10 @@ export default function App() {
 
   if (adminOpen) {
     return <AdminPage onClose={() => setAdminOpen(false)} meId={auth.user.id} />
+  }
+
+  if (analyticsOpen) {
+    return <ShareAnalyticsPage onClose={() => setAnalyticsOpen(false)} />
   }
 
   return (
