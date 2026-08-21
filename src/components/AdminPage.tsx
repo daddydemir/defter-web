@@ -608,7 +608,7 @@ function UsersTab({
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString('tr-TR') : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex max-w-[13rem] flex-wrap items-center justify-end gap-1">
                         <button
                           onClick={() => onOpenDetail(u.id)}
                           className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-sub transition-colors hover:bg-surface2 hover:text-ink"
@@ -725,7 +725,7 @@ function UsersTab({
                     )
                   })()}
                 </p>
-                <div className="mt-2 flex items-center gap-1.5 border-t border-edge pt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-edge pt-2">
                   <button
                     onClick={() => onOpenDetail(u.id)}
                     className="rounded-lg bg-surface2 px-2.5 py-1.5 text-xs font-medium text-ink ring-1 ring-edge transition-colors hover:bg-surface"
