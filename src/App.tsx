@@ -54,6 +54,8 @@ export default function App() {
   const notesRef = useRef(notes)
   notesRef.current = notes
   const knownIncomingRef = useRef<string[]>([])
+  // Not başına devam eden kayıt zinciri: isteklerin sırası korunur, üst üste binmez
+  const saveChainsRef = useRef<Map<string, Promise<unknown>>>(new Map())
 
   const logout = useCallback(() => {
     clearAuth()
@@ -112,10 +114,15 @@ export default function App() {
     })
   }, [reload, auth, logout])
 
-  // Arkadaşlık isteklerini periyodik kontrol et; yenisi gelince bildir
+  // Arkadaşlık isteklerini periyodik kontrol et; yenisi gelince bildir.
+  // Sunucu yükünü sınırlamak için: sekme arka plandayken istek atılmaz,
+  // tekrar görünür olunca hemen bir kez kontrol edilip periyot yeniden başlar.
   useEffect(() => {
     if (!auth) return
     let cancelled = false
+    let timer: number | undefined
+    const POLL_MS = 30000
+
     try {
       const raw = localStorage.getItem('notes-friend-reqs')
       if (raw) {
@@ -149,11 +156,34 @@ export default function App() {
       }
     }
 
-    poll()
-    const t = setInterval(poll, 15000)
+    const stop = () => {
+      if (timer !== undefined) {
+        clearInterval(timer)
+        timer = undefined
+      }
+    }
+    const start = () => {
+      stop()
+      timer = window.setInterval(poll, POLL_MS)
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        poll()
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    if (document.visibilityState === 'visible') {
+      poll()
+      start()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
       cancelled = true
-      clearInterval(t)
+      stop()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [auth])
 
@@ -226,6 +256,16 @@ export default function App() {
     const prev = notesRef.current.find((n) => n.id === id)
     if (!prev) return
 
+    // Sunucuda zaten kayıtlı olan değerlerle değişiklik yoksa istek atma
+    const tagKey = (arr: Note['tags']) => arr.map((t) => t.id).sort().join(',')
+    const unchanged =
+      (patch.title === undefined || patch.title === prev.title) &&
+      (patch.content === undefined || patch.content === prev.content) &&
+      (patch.folderId === undefined || patch.folderId === prev.folderId) &&
+      (patch.isPinned === undefined || patch.isPinned === prev.isPinned) &&
+      (patch.tags === undefined || tagKey(patch.tags) === tagKey(prev.tags))
+    if (unchanged) return
+
     setNotes((list) =>
       list.map((n) => {
         if (n.id !== id) return n
@@ -250,8 +290,11 @@ export default function App() {
     if (patch.isPinned !== undefined) serverPatch.isPinned = patch.isPinned
     if (patch.tags) serverPatch.tagIds = patch.tags.map((t) => t.id)
 
-    api
-      .updateNote(id, serverPatch)
+    // Aynı not için bekleyen kayıt varsa arkasına sıraya gir; böylece
+    // tam içerikli PATCH'ler paralel yarış yerine sırayla gider.
+    const previousChain = saveChainsRef.current.get(id) ?? Promise.resolve()
+    const task = previousChain.then(() => api.updateNote(id, serverPatch))
+    task
       .then((serverNote) => {
         setNotes((list) =>
           list.map((n) => {
@@ -264,6 +307,11 @@ export default function App() {
         setError((err as Error).message)
         reload()
       })
+    const settled = task.catch(() => {})
+    settled.then(() => {
+      if (saveChainsRef.current.get(id) === settled) saveChainsRef.current.delete(id)
+    })
+    saveChainsRef.current.set(id, settled)
   }, [reload, folders])
 
   const createNote = useCallback(async () => {

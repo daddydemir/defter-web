@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { Folder, Note, Tag } from '../types'
 import { cn } from '../lib/format'
 import {
@@ -18,6 +18,12 @@ import { RichEditor } from './RichEditor'
 import { ShareDialog } from './ShareDialog'
 
 type Mode = 'edit' | 'split' | 'preview'
+
+// Otomatik kaydetme zamanlaması:
+// - SAVE_IDLE_MS: kullanıcı yazmayı bıraktıktan sonra beklenen süre
+// - SAVE_MAX_WAIT_MS: kesintisiz yazarken iki kayıt arasında izin verilen en uzun süre
+const SAVE_IDLE_MS = 1500
+const SAVE_MAX_WAIT_MS = 5000
 
 interface EditorProps {
   note: Note
@@ -105,11 +111,60 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
 
   const dirty = draft.title !== note.title || draft.content !== note.content
 
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+  const noteRef = useRef(note)
+  noteRef.current = note
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
+  const timersRef = useRef<{ idle: number | null; max: number | null }>({ idle: null, max: null })
+
+  const clearSaveTimers = useCallback(() => {
+    const t = timersRef.current
+    if (t.idle !== null) window.clearTimeout(t.idle)
+    if (t.max !== null) window.clearTimeout(t.max)
+    t.idle = null
+    t.max = null
+  }, [])
+
+  // Bekleyen değişikliği hemen kaydet; sunucuda zaten kayıtlıysa istek atma
+  const flushPendingSave = useCallback(() => {
+    clearSaveTimers()
+    if (readOnlyRef.current) return
+    const cur = draftRef.current
+    const saved = noteRef.current
+    if (cur.title === saved.title && cur.content === saved.content) return
+    onChangeRef.current({ title: cur.title, content: cur.content })
+  }, [clearSaveTimers])
+
   useEffect(() => {
-    if (!dirty || readOnly) return
-    const t = setTimeout(() => onChange({ title: draft.title, content: draft.content }), 600)
-    return () => clearTimeout(t)
-  }, [draft.title, draft.content, dirty, note.title, note.content, onChange, readOnly])
+    if (readOnly || !dirty) return
+
+    // Her tuş vuruşu boştaki kaydı öteler (debounce)...
+    if (timersRef.current.idle !== null) window.clearTimeout(timersRef.current.idle)
+    timersRef.current.idle = window.setTimeout(flushPendingSave, SAVE_IDLE_MS)
+
+    // ...ama kesintisiz yazmada en fazla SAVE_MAX_WAIT_MS sonra bir kez daha kaydeder.
+    if (timersRef.current.max === null) {
+      timersRef.current.max = window.setTimeout(flushPendingSave, SAVE_MAX_WAIT_MS)
+    }
+  }, [draft.title, draft.content, note.title, note.content, dirty, readOnly, flushPendingSave])
+
+  // Sekme arka plana geçince / kapanırken bekleyen değişiklikleri hemen kaydet
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPendingSave()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', flushPendingSave)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', flushPendingSave)
+      flushPendingSave()
+    }
+  }, [flushPendingSave])
 
   const addTag = async (raw: string) => {
     const name = raw.trim().replace(/^#/, '')
