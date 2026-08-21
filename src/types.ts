@@ -74,12 +74,38 @@ export interface AdminUser {
   username: string
   email: string
   isAdmin: boolean
+  isDeveloper?: boolean
   bannedAt: string | null
   createdAt: string
   noteCount: number
   friendCount: number
   maxNotes: number | null
   maxNoteChars: number | null
+}
+
+export interface DevEndpointStat {
+  method: string
+  route: string
+  count: number
+}
+
+export interface DevDailySeries {
+  users: DailyViewsPoint[]
+  notes: DailyViewsPoint[]
+  apiCalls: DailyViewsPoint[]
+}
+
+export interface DevMetrics {
+  totals: {
+    users: number
+    notes: number
+    publicShares: number
+    friendships: number
+    apiCalls: number
+    endpointCount: number
+  }
+  daily: DevDailySeries
+  endpoints: DevEndpointStat[]
 }
 
 export interface AdminLimits {

@@ -3,6 +3,7 @@ export interface AuthUser {
   email: string
   username: string
   isAdmin: boolean
+  isDeveloper?: boolean
 }
 
 const TOKEN_KEY = 'notes-token'
@@ -27,7 +28,7 @@ export function getStoredUser(): AuthUser | null {
       typeof parsed.email === 'string' &&
       typeof parsed.username === 'string'
     ) {
-      return { ...parsed, isAdmin: parsed.isAdmin === true }
+      return { ...parsed, isAdmin: parsed.isAdmin === true, isDeveloper: parsed.isDeveloper === true }
     }
     return null
   } catch {

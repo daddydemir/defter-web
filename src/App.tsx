@@ -15,6 +15,7 @@ import { FriendsDialog } from './components/FriendsDialog'
 import { AdminPage } from './components/AdminPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ShareAnalyticsPage } from './components/ShareAnalyticsPage'
+import { DeveloperPage } from './components/DeveloperPage'
 import { PublicNote } from './components/PublicNote'
 import { X } from 'lucide-react'
 
@@ -86,7 +87,13 @@ export default function App() {
       .me()
       .then(({ user }) => {
         if (cancelled) return
-        if (user.id !== auth.user.id || user.email !== auth.user.email || user.username !== auth.user.username || user.isAdmin !== auth.user.isAdmin) {
+        if (
+          user.id !== auth.user.id ||
+          user.email !== auth.user.email ||
+          user.username !== auth.user.username ||
+          user.isAdmin !== auth.user.isAdmin ||
+          (user.isDeveloper === true) !== (auth.user.isDeveloper === true)
+        ) {
           setAuthState({ token: auth.token, user })
         }
       })
@@ -461,6 +468,11 @@ export default function App() {
 
   if (!auth) {
     return <AuthScreen onAuthed={handleAuthed} />
+  }
+
+  // Developer rolündeki kullanıcılar normal uygulama yerine metrik panelini görür
+  if (auth.user.isDeveloper && !auth.user.isAdmin) {
+    return <DeveloperPage onLogout={logout} />
   }
 
   if (settingsOpen) {

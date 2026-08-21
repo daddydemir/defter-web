@@ -24,6 +24,7 @@ import {
   ShieldOff,
   ShieldPlus,
   ShieldX,
+  Terminal,
   Trash2,
   UserPlus,
   Users,
@@ -36,6 +37,7 @@ type ConfirmAction =
   | { type: 'ban'; user: AdminUser }
   | { type: 'unban'; user: AdminUser }
   | { type: 'role'; user: AdminUser; makeAdmin: boolean }
+  | { type: 'devRole'; user: AdminUser; makeDev: boolean }
   | { type: 'deleteNote'; note: { id: string; title: string }; userId?: string }
   | null
 
@@ -72,27 +74,43 @@ function StatCard({
   )
 }
 
-function StatusBadge({ banned, isAdmin }: { banned: boolean; isAdmin: boolean }) {
-  if (isAdmin) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-500/30">
-        <ShieldCheck className="h-3 w-3" />
-        Yönetici
-      </span>
-    )
-  }
-  if (banned) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500 ring-1 ring-red-500/30">
-        <ShieldOff className="h-3 w-3" />
-        Engelli
-      </span>
-    )
-  }
-  return (
+function StatusBadge({
+  banned,
+  isAdmin,
+  isDeveloper,
+}: {
+  banned: boolean
+  isAdmin: boolean
+  isDeveloper?: boolean
+}) {
+  const primary = isAdmin ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-600 ring-1 ring-amber-500/30">
+      <ShieldCheck className="h-3 w-3" />
+      Yönetici
+    </span>
+  ) : banned ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500 ring-1 ring-red-500/30">
+      <ShieldOff className="h-3 w-3" />
+      Engelli
+    </span>
+  ) : (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/30">
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
       Aktif
+    </span>
+  )
+  return (
+    <span className="inline-flex items-center gap-1">
+      {primary}
+      {isDeveloper && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-semibold text-violet-500 ring-1 ring-violet-500/30"
+          title="Developer paneline erişimi var"
+        >
+          <Terminal className="h-3 w-3" />
+          Developer
+        </span>
+      )}
     </span>
   )
 }
@@ -241,6 +259,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
       if (c.type === 'ban') await api.adminBan(c.user.id)
       else if (c.type === 'unban') await api.adminUnban(c.user.id)
       else if (c.type === 'role') await api.adminSetRole(c.user.id, c.makeAdmin)
+      else if (c.type === 'devRole') await api.adminSetDevRole(c.user.id, c.makeDev)
       else if (c.type === 'deleteNote') {
         if (c.userId) await api.adminDeleteUserNote(c.userId, c.note.id)
         else await api.adminDeleteNote(c.note.id)
@@ -385,6 +404,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
               onBan={(u) => setConfirm({ type: 'ban', user: u })}
               onUnban={(u) => setConfirm({ type: 'unban', user: u })}
               onRole={(u, makeAdmin) => setConfirm({ type: 'role', user: u, makeAdmin })}
+              onDevRole={(u, makeDev) => setConfirm({ type: 'devRole', user: u, makeDev })}
               inputCls={inputCls}
             />
           ) : tab === 'notes' ? (
@@ -440,7 +460,11 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 ? confirm.makeAdmin
                   ? 'Yönetici yap?'
                   : 'Yöneticiliği kaldır?'
-                : 'Notu sil?'
+                : confirm?.type === 'devRole'
+                  ? confirm.makeDev
+                    ? 'Developer yap?'
+                    : 'Developer yetkisini kaldır?'
+                  : 'Notu sil?'
         }
         message={
           confirm?.type === 'ban'
@@ -451,7 +475,11 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 ? confirm.makeAdmin
                   ? `"${confirm.user.username}" yönetici yetkisine sahip olacak ve tüm kullanıcıları, notları ve günlükleri görebilecek.`
                   : `"${confirm.user.username}" yönetici yetkisini kaybedecek.`
-                : `"${confirm?.note.title || 'Başlıksız'}" notu kalıcı olarak silinecek.`
+                : confirm?.type === 'devRole'
+                  ? confirm.makeDev
+                    ? `"${confirm.user.username}" developer paneline erişebilecek; normal uygulama ekranı yerine sistem metriklerini görececek.`
+                    : `"${confirm.user.username}" developer yetkisini kaybedecek ve normal uygulamayı görmeye başlayacak.`
+                  : `"${confirm?.note.title || 'Başlıksız'}" notu kalıcı olarak silinecek.`
         }
         confirmLabel={
           confirm?.type === 'ban'
@@ -462,7 +490,11 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 ? confirm.makeAdmin
                   ? 'Yönetici Yap'
                   : 'Yetkiyi Kaldır'
-                : 'Sil'
+                : confirm?.type === 'devRole'
+                  ? confirm.makeDev
+                    ? 'Developer Yap'
+                    : 'Yetkiyi Kaldır'
+                  : 'Sil'
         }
         cancelLabel="Vazgeç"
         onConfirm={runConfirm}
@@ -490,6 +522,7 @@ function UsersTab({
   onBan,
   onUnban,
   onRole,
+  onDevRole,
   inputCls,
 }: {
   users: AdminUser[]
@@ -503,6 +536,7 @@ function UsersTab({
   onBan: (u: AdminUser) => void
   onUnban: (u: AdminUser) => void
   onRole: (u: AdminUser, makeAdmin: boolean) => void
+  onDevRole: (u: AdminUser, makeDev: boolean) => void
   inputCls: string
 }) {
   const effNoteLimit = (u: AdminUser): number | null => u.maxNotes ?? limits?.maxNotesPerUser ?? null
@@ -573,7 +607,7 @@ function UsersTab({
                     </td>
                     <td className="px-4 py-3 text-center tabular-nums text-ink">{u.friendCount}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge banned={!!u.bannedAt} isAdmin={u.isAdmin} />
+                      <StatusBadge banned={!!u.bannedAt} isAdmin={u.isAdmin} isDeveloper={u.isDeveloper === true} />
                     </td>
                     <td className="px-4 py-3 text-xs text-sub">
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString('tr-TR') : '—'}
@@ -616,6 +650,26 @@ function UsersTab({
                             <ShieldPlus className="h-4 w-4" />
                           </button>
                         )}
+                        {u.id !== meId &&
+                          (u.isDeveloper ? (
+                            <button
+                              onClick={() => onDevRole(u, false)}
+                              disabled={busy}
+                              title="Developer yetkisini kaldır"
+                              className="rounded-lg p-1.5 text-sub transition-colors hover:bg-violet-500/10 hover:text-violet-500 disabled:opacity-50"
+                            >
+                              <Terminal className="h-4 w-4" />
+                            </button>
+                          ) : !u.bannedAt ? (
+                            <button
+                              onClick={() => onDevRole(u, true)}
+                              disabled={busy}
+                              title="Developer yap"
+                              className="rounded-lg p-1.5 text-sub transition-colors hover:bg-surface2 hover:text-violet-500 disabled:opacity-50"
+                            >
+                              <Terminal className="h-4 w-4" />
+                            </button>
+                          ) : null)}
                         {!u.isAdmin &&
                           (u.bannedAt ? (
                             <button

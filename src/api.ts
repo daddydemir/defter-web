@@ -7,6 +7,7 @@ import type {
   AdminUserDetail,
   AuthLog,
   DailyViewsPoint,
+  DevMetrics,
   Folder,
   Friend,
   FriendRequests,
@@ -141,6 +142,8 @@ export const api = {
   analyticsNoteDaily: (noteId: string, days: number) =>
     request<DailyViewsPoint[]>(`/analytics/notes/${encodeURIComponent(noteId)}/daily?days=${days}`),
 
+  devMetrics: () => request<DevMetrics>('/dev/metrics'),
+
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ updated: boolean }>('/auth/me/password', {
       method: 'PATCH',
@@ -161,6 +164,11 @@ export const api = {
   adminUnban: (id: string) => request<{ banned: boolean }>(`/admin/users/${id}/unban`, { method: 'PATCH' }),
   adminSetRole: (id: string, isAdmin: boolean) =>
     request<{ isAdmin: boolean }>(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ isAdmin }) }),
+  adminSetDevRole: (id: string, isDeveloper: boolean) =>
+    request<{ isDeveloper: boolean }>(`/admin/users/${id}/dev-role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isDeveloper }),
+    }),
   adminLogs: (params: { q?: string; success?: boolean | null; limit?: number; offset?: number }) => {
     const sp = new URLSearchParams()
     if (params.q) sp.set('q', params.q)
