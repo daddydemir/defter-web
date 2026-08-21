@@ -314,7 +314,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
               Kullanıcıları ve notları yönetin
             </p>
           </div>
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface px-2.5 py-1 text-[11px] font-medium text-sub">
+          <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-edge bg-surface px-2.5 py-1 text-[11px] font-medium text-sub">
             <ShieldCheck className="h-3.5 w-3.5 text-accent" />
             Yönetici
           </span>
@@ -349,17 +349,11 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 key={key}
                 onClick={() => setTab(key)}
                 className={cn(
-                  'relative -mb-px shrink-0 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors',
-                  tab === key ? 'text-ink' : 'text-sub hover:text-ink',
+                  '-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+                  tab === key ? 'border-accent text-ink' : 'border-transparent text-sub hover:text-ink',
                 )}
               >
                 {label}
-                <span
-                  className={cn(
-                    'absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent transition-opacity',
-                    tab === key ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
               </button>
             ))}
           </div>
@@ -384,6 +378,7 @@ export function AdminPage({ onClose, meId }: { onClose: () => void; meId: string
                 onBan={() => setConfirm({ type: 'ban', user: detail.user })}
                 onUnban={() => setConfirm({ type: 'unban', user: detail.user })}
                 onRole={(makeAdmin) => setConfirm({ type: 'role', user: detail.user, makeAdmin })}
+                onDevRole={(makeDev) => setConfirm({ type: 'devRole', user: detail.user, makeDev })}
                 onDeleteNote={(n) => setConfirm({ type: 'deleteNote', note: n, userId: detail.user.id })}
                 onResetPassword={() => setResetUser(detail.user)}
                 globalLimits={limits}
@@ -559,8 +554,8 @@ function UsersTab({
       ) : (
         <>
           {/* Masaüstü tablo */}
-          <div className="hidden overflow-hidden rounded-xl border border-edge bg-surface md:block">
-            <table className="w-full text-left text-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-edge bg-surface md:block">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-edge text-[11px] font-semibold uppercase tracking-wider text-sub">
                   <th className="px-4 py-3 font-medium">Kullanıcı</th>
@@ -656,7 +651,7 @@ function UsersTab({
                               onClick={() => onDevRole(u, false)}
                               disabled={busy}
                               title="Developer yetkisini kaldır"
-                              className="rounded-lg p-1.5 text-sub transition-colors hover:bg-violet-500/10 hover:text-violet-500 disabled:opacity-50"
+                              className="rounded-lg p-1.5 text-violet-500 transition-colors hover:bg-violet-500/10 disabled:opacity-50"
                             >
                               <Terminal className="h-4 w-4" />
                             </button>
@@ -709,7 +704,7 @@ function UsersTab({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-medium text-ink">{u.username}</span>
-                      <StatusBadge banned={!!u.bannedAt} isAdmin={u.isAdmin} />
+                      <StatusBadge banned={!!u.bannedAt} isAdmin={u.isAdmin} isDeveloper={u.isDeveloper === true} />
                     </div>
                     <p className="truncate text-[11px] text-sub">{u.email}</p>
                   </div>
@@ -768,6 +763,26 @@ function UsersTab({
                       </button>
                     )
                   )}
+                  {u.id !== meId &&
+                    (u.isDeveloper ? (
+                      <button
+                        onClick={() => onDevRole(u, false)}
+                        disabled={busy}
+                        className="flex items-center gap-1 rounded-lg bg-violet-500/10 px-2.5 py-1.5 text-xs font-medium text-violet-500 transition-colors hover:bg-violet-500/20 disabled:opacity-50"
+                      >
+                        <Terminal className="h-3.5 w-3.5" />
+                        Dev kaldır
+                      </button>
+                    ) : !u.bannedAt ? (
+                      <button
+                        onClick={() => onDevRole(u, true)}
+                        disabled={busy}
+                        className="flex items-center gap-1 rounded-lg bg-surface2 px-2.5 py-1.5 text-xs font-medium text-sub ring-1 ring-edge transition-colors hover:text-violet-500 disabled:opacity-50"
+                      >
+                        <Terminal className="h-3.5 w-3.5" />
+                        Dev yap
+                      </button>
+                    ) : null)}
                   <div className="ml-auto">
                     {!u.isAdmin &&
                       (u.bannedAt ? (
@@ -831,8 +846,8 @@ function NotesTab({
         </div>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-edge bg-surface md:block">
-            <table className="w-full text-left text-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-edge bg-surface md:block">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-edge text-[11px] font-semibold uppercase tracking-wider text-sub">
                   <th className="px-4 py-3 font-medium">Başlık</th>
@@ -996,8 +1011,8 @@ function LogsTab({
         </div>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-edge bg-surface md:block">
-            <table className="w-full text-left text-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-edge bg-surface md:block">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-edge text-[11px] font-semibold uppercase tracking-wider text-sub">
                   <th className="px-4 py-3 font-medium">Sonuç</th>
@@ -1305,6 +1320,7 @@ function UserDetailView({
   onBan,
   onUnban,
   onRole,
+  onDevRole,
   onDeleteNote,
   onResetPassword,
   inputCls,
@@ -1318,6 +1334,7 @@ function UserDetailView({
   onBan: () => void
   onUnban: () => void
   onRole: (makeAdmin: boolean) => void
+  onDevRole: (makeDev: boolean) => void
   onDeleteNote: (n: AdminUserDetail['notes'][number]) => void
   onResetPassword: () => void
   inputCls: string
@@ -1393,7 +1410,7 @@ function UserDetailView({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-ink">{user.username}</h2>
-              <StatusBadge banned={!!user.bannedAt} isAdmin={user.isAdmin} />
+              <StatusBadge banned={!!user.bannedAt} isAdmin={user.isAdmin} isDeveloper={user.isDeveloper === true} />
             </div>
             <p className="mt-0.5 text-xs text-sub">{user.email}</p>
           </div>
@@ -1422,6 +1439,26 @@ function UserDetailView({
                 )}
               </button>
             )}
+            {user.id !== meId &&
+              (user.isDeveloper ? (
+                <button
+                  onClick={() => onDevRole(false)}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-500 transition-colors hover:bg-violet-500/20 disabled:opacity-50"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  Developer yetkisini kaldır
+                </button>
+              ) : !user.bannedAt ? (
+                <button
+                  onClick={() => onDevRole(true)}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 rounded-lg bg-surface2 px-3 py-2 text-xs font-medium text-ink ring-1 ring-edge transition-colors hover:text-violet-500 disabled:opacity-50"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  Developer yap
+                </button>
+              ) : null)}
             {!user.isAdmin && (
               <>
                 <button
