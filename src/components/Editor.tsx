@@ -21,9 +21,10 @@ type Mode = 'edit' | 'split' | 'preview'
 
 // Otomatik kaydetme zamanlaması:
 // - SAVE_IDLE_MS: kullanıcı yazmayı bıraktıktan sonra beklenen süre
-// - SAVE_MAX_WAIT_MS: kesintisiz yazarken iki kayıt arasında izin verilen en uzun süre
-const SAVE_IDLE_MS = 1500
-const SAVE_MAX_WAIT_MS = 5000
+// - SAVE_MAX_WAIT_MS: kesintisiz yazmada güvenlik üst sınırı (normal yazım temposunda
+//   hiç devreye girmez; yalnızca dakikalarca duraksız yazışta bir kez tetiklenir)
+const SAVE_IDLE_MS = 2000
+const SAVE_MAX_WAIT_MS = 30000
 
 interface EditorProps {
   note: Note
@@ -120,6 +121,9 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
   const readOnlyRef = useRef(readOnly)
   readOnlyRef.current = readOnly
   const timersRef = useRef<{ idle: number | null; max: number | null }>({ idle: null, max: null })
+  // En son Editor'den gönderilen içerik; prop gecikmesinden bağımsız olarak
+  // aynı payload'un ikinci kez gönderilmesini engeller (duplicate istek koruması)
+  const lastSentRef = useRef<{ title: string; content: string } | null>(null)
 
   const clearSaveTimers = useCallback(() => {
     const t = timersRef.current
@@ -129,13 +133,22 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
     t.max = null
   }, [])
 
-  // Bekleyen değişikliği hemen kaydet; sunucuda zaten kayıtlıysa istek atma
+  // Bekleyen değişikliği hemen kaydet; sunucuda zaten kayıtlıysa ya da az önce
+  // birebir aynı içerik gönderilmişse istek atma
   const flushPendingSave = useCallback(() => {
     clearSaveTimers()
     if (readOnlyRef.current) return
     const cur = draftRef.current
     const saved = noteRef.current
     if (cur.title === saved.title && cur.content === saved.content) return
+    if (
+      lastSentRef.current &&
+      lastSentRef.current.title === cur.title &&
+      lastSentRef.current.content === cur.content
+    ) {
+      return
+    }
+    lastSentRef.current = { title: cur.title, content: cur.content }
     onChangeRef.current({ title: cur.title, content: cur.content })
   }, [clearSaveTimers])
 
