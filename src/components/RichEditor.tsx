@@ -11,6 +11,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { TableKit } from '@tiptap/extension-table'
 import { createLowlight, common } from 'lowlight'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
@@ -43,6 +44,8 @@ import {
   Quote,
   SquareCode,
   Strikethrough,
+  Table as TableIcon,
+  Trash2,
   Underline as UnderlineIcon,
 } from 'lucide-react'
 import { copyText } from '../lib/clipboard'
@@ -178,6 +181,13 @@ const SLASH_ITEMS: SlashItem[] = [
     run: (e) => e.chain().focus().toggleCodeBlock().run(),
   },
   {
+    title: 'Tablo',
+    hint: 'Başlıklı tablo ekle',
+    keywords: ['tablo', 'table', 'hucre', 'satir', 'sutun'],
+    icon: <TableIcon className="h-4 w-4" />,
+    run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  {
     title: 'Yatay çizgi',
     hint: 'Bölüm ayracı',
     keywords: ['cizgi', 'ayrac', 'hr', 'divider', 'line'],
@@ -267,6 +277,7 @@ function baseExtensions(collab: boolean) {
     TaskList,
     TaskItem.configure({ nested: true }),
     ResizableImage.configure({ resize: { enabled: true, alwaysPreserveAspectRatio: true } }),
+    TableKit.configure({ table: { resizable: false } }),
     Placeholder.configure({ placeholder: 'Notunuzu yazmaya başlayın…' }),
     Markdown.configure({ html: true }),
   ]
@@ -293,9 +304,11 @@ function RichEditorInner({
   const [linkCanRemove, setLinkCanRemove] = useState(false)
   const [codeLangPos, setCodeLangPos] = useState<{ x: number; y: number } | null>(null)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [tableMenuPos, setTableMenuPos] = useState<{ x: number; y: number } | null>(null)
   const [, setTick] = useState(0)
   const slashMenuRef = useRef<HTMLDivElement | null>(null)
   const codeLangMenuRef = useRef<HTMLDivElement | null>(null)
+  const tableMenuElRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef(value)
   contentRef.current = value
   const onChangeRef = useRef(onChange)
@@ -306,6 +319,8 @@ function RichEditorInner({
   slashIndexRef.current = slashIndex
   const codeLangRef = useRef(codeLangPos)
   codeLangRef.current = codeLangPos
+  const tableMenuRef = useRef(tableMenuPos)
+  tableMenuRef.current = tableMenuPos
   const editorRef = useRef<Editor | null>(null)
   editorRef.current = editor
   const canEdit = editable ?? true
@@ -366,15 +381,30 @@ function RichEditorInner({
       setCodeLangPos({ x, y })
     }
 
+    const updateTableMenu = (ed: Editor) => {
+      if (!ed.isActive('table') || typeof window === 'undefined') {
+        setTableMenuPos(null)
+        return
+      }
+      const coords = ed.view.coordsAtPos(ed.state.selection.from)
+      const width = 300
+      const height = 42
+      const x = Math.max(8, Math.min(coords.left, window.innerWidth - width - 8))
+      let y = coords.top - height - 4
+      if (y < 64) y = coords.bottom + 6
+      setTableMenuPos({ x, y })
+    }
+
     const editorProps = {
       attributes: {
         class: 'tiptap mx-auto min-h-full w-full max-w-[46rem] px-5 py-6 md:px-8 md:py-8',
       },
       handleKeyDown(_view: unknown, event: KeyboardEvent) {
         const s = slashRef.current
-        if (event.key === 'Escape' && (s || codeLangRef.current)) {
+        if (event.key === 'Escape' && (s || codeLangRef.current || tableMenuRef.current)) {
           setSlash(null)
           setCodeLangPos(null)
+          setTableMenuPos(null)
           return true
         }
         if (!s) return false
@@ -450,11 +480,13 @@ function RichEditorInner({
           if (canEdit) onChangeRef.current(mdOf(editor))
           updateSlash(editor)
           updateCodeLang(editor)
+          updateTableMenu(editor)
           setTick((t) => t + 1)
         },
         onSelectionUpdate: ({ editor }) => {
           updateSlash(editor)
           updateCodeLang(editor)
+          updateTableMenu(editor)
           setTick((t) => t + 1)
         },
       })
@@ -470,11 +502,13 @@ function RichEditorInner({
           onChangeRef.current(mdOf(editor))
           updateSlash(editor)
           updateCodeLang(editor)
+          updateTableMenu(editor)
           setTick((t) => t + 1)
         },
         onSelectionUpdate: ({ editor }) => {
           updateSlash(editor)
           updateCodeLang(editor)
+          updateTableMenu(editor)
           setTick((t) => t + 1)
         },
       })
@@ -528,6 +562,17 @@ function RichEditorInner({
   useEffect(() => {
     if (!codeLangPos) setCodeCopied(false)
   }, [codeLangPos])
+
+  useEffect(() => {
+    if (!tableMenuPos || typeof window === 'undefined') return
+    const onDown = (e: MouseEvent) => {
+      if (tableMenuElRef.current && !tableMenuElRef.current.contains(e.target as Node)) {
+        setTableMenuPos(null)
+      }
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [tableMenuPos])
 
   const filtered = slash
     ? SLASH_ITEMS.filter((i) =>
@@ -611,6 +656,13 @@ function RichEditorInner({
           </ToolbarBtn>
           <ToolbarBtn title="Görsel" active={false} onClick={() => setImageDialogOpen(true)}>
             <ImageIcon className="h-4 w-4" />
+          </ToolbarBtn>
+          <ToolbarBtn
+            title="Tablo"
+            active={editor.isActive('table')}
+            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          >
+            <TableIcon className="h-4 w-4" />
           </ToolbarBtn>
           <ToolbarBtn title="Yatay çizgi" active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             <Minus className="h-4 w-4" />
@@ -745,6 +797,46 @@ function RichEditorInner({
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sub transition-colors hover:bg-surface2 hover:text-ink"
           >
             {codeCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      )}
+
+      {tableMenuPos && (
+        <div
+          ref={tableMenuElRef}
+          onMouseDown={(e) => e.preventDefault()}
+          className="fixed z-50 flex items-center gap-0.5 rounded-xl border border-edge bg-surface p-1 shadow-xl"
+          style={{ left: tableMenuPos.x, top: tableMenuPos.y }}
+          role="toolbar"
+          aria-label="Tablo araçları"
+        >
+          {(
+            [
+              ['+ Satır', () => editor.chain().focus().addRowAfter().run()],
+              ['+ Sütun', () => editor.chain().focus().addColumnAfter().run()],
+              ['− Satır', () => editor.chain().focus().deleteRow().run()],
+              ['− Sütun', () => editor.chain().focus().deleteColumn().run()],
+            ] as const
+          ).map(([label, run]) => (
+            <button
+              key={label}
+              onClick={run}
+              className="flex h-8 items-center justify-center rounded-md px-2.5 text-xs font-medium text-sub transition-colors hover:bg-surface2 hover:text-ink"
+            >
+              {label}
+            </button>
+          ))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-edge" />
+          <button
+            onClick={() => {
+              setTableMenuPos(null)
+              editor.chain().focus().deleteTable().run()
+            }}
+            aria-label="Tabloyu sil"
+            title="Tabloyu sil"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-sub transition-colors hover:bg-red-500/10 hover:text-red-500"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       )}

@@ -356,6 +356,39 @@ textarea {
   opacity: 0.45;
 }
 
+/* ---------- Tablolar ---------- */
+.tiptap table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 1em 0;
+  font-size: 0.875rem;
+}
+.tiptap th,
+.tiptap td {
+  position: relative;
+  border: 1px solid var(--border);
+  padding: 0.45em 0.75em;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.tiptap th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.tiptap th > p,
+.tiptap td > p {
+  margin: 0;
+}
+.tiptap .selectedCell::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 /* ---------- Resizable image ---------- */
 [data-resize-container] {
   position: relative;
