@@ -3,11 +3,93 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Defter — API Dokümantasyonu</title>
-  <style>body{margin:0}</style>
+  <title>Defter — Dokümantasyon</title>
+  <style>
+    :root{--bg:#eef1f6;--surface:#fff;--border:#d7dce8;--text:#0f172a;--sub:#64748b;--accent:#4f46e5}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:16px;padding:12px 20px;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+    header nav{display:flex;gap:14px;font-size:13px;flex-wrap:wrap}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 20px}
+    .hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+    .grid{display:grid;gap:14px;margin-top:18px}
+    @media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+    .card h3{margin:0 0 6px;font-size:14px}
+    .card p{margin:0;color:var(--sub);font-size:12px;line-height:1.5}
+    .badge{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:2px 8px;color:var(--sub)}
+    #api{margin-top:28px;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#fff}
+  </style>
 </head>
 <body>
-  <script id="api-reference" data-url="api/openapi.yaml"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+<header>
+  <strong>Defter</strong> <span style="color:var(--sub);font-size:12px">Dokümantasyon</span>
+  <nav>
+    <a href="introduction.html">Giriş</a>
+    <a href="features/notes-management.html">Features</a>
+    <a href="decisions/001-fastify-uzerine-kurulum.html">Kararlar</a>
+    <a href="guides/getting-started.html">Rehberler</a>
+    <a href="#api">API</a>
+    <a href="changelog.html">Changelog</a>
+    <a href="https://github.com/yazilim-tornacisi/defter-web/tree/main/docs" target="_blank">GitHub</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="badge">Scalar Docs uyumlu</div>
+    <h1 style="margin:10px 0 8px">Defter — Notlarınız tek yerde</h1>
+    <p style="color:var(--sub);line-height:1.6;margin:0">Aşağıda <strong>12 feature</strong>, <strong>7 ADR</strong>, <strong>5 rehber</strong> ve <strong>OpenAPI 3.1</strong> referansı var. Kartlara tıklayarak ilgili markdown’a gidin; alt kısımda Scalar API dokümanı canlı render edilir.</p>
+  </div>
+
+  <h2 style="margin:22px 0 10px;font-size:15px">Features</h2>
+  <div class="grid">
+    <a class="card" href="features/notes-management.html"><h3>Not Yönetimi</h3><p>Klasör, etiket, pin, arama ve limitler.</p></a>
+    <a class="card" href="features/rich-editor.html"><h3>Zengin Editör</h3><p>TipTap, slash menü, tablo ve markdown.</p></a>
+    <a class="card" href="features/collaboration.html"><h3>İşbirliği</h3><p>Yjs + WebSocket, imleç paylaşımı.</p></a>
+    <a class="card" href="features/sharing.html"><h3>Paylaşım</h3><p>Arkadaşa view/edit ve public link.</p></a>
+    <a class="card" href="features/friends.html"><h3>Arkadaşlar</h3><p>Arama, istek ve rozetler.</p></a>
+    <a class="card" href="features/authentication.html"><h3>Kimlik Doğrulama</h3><p>Scrypt, HMAC token, Turnstile.</p></a>
+    <a class="card" href="features/qr-login.html"><h3>QR Giriş</h3><p>3 dk tek kullanımlık kod, PWA tarama.</p></a>
+    <a class="card" href="features/rate-limiting.html"><h3>Rate Limit</h3><p>Redis fixed-window + metrikler.</p></a>
+    <a class="card" href="features/analytics.html"><h3>Analitik</h3><p>share_views ve günlük seriler.</p></a>
+    <a class="card" href="features/admin-panel.html"><h3>Yönetim Paneli</h3><p>Kullanıcı/not/günlük/limitler.</p></a>
+    <a class="card" href="features/developer-panel.html"><h3>Geliştirici Paneli</h3><p>Endpoint ve rate limit metrikleri.</p></a>
+    <a class="card" href="features/theming-pwa.html"><h3>Tema &amp; PWA</h3><p>Açık/koyu tema ve offline kabuk.</p></a>
+  </div>
+
+  <h2 style="margin:22px 0 10px;font-size:15px">Kararlar (ADR)</h2>
+  <div class="grid">
+    <a class="card" href="decisions/001-fastify-uzerine-kurulum.html"><h3>001 — Fastify</h3><p>Neden Express yerine Fastify 5.</p></a>
+    <a class="card" href="decisions/002-tiptap-yjs-isbirligi.html"><h3>002 — TipTap + Yjs</h3><p>CRDT ile işbirliği editörü.</p></a>
+    <a class="card" href="decisions/003-postgresql-tek-kaynak.html"><h3>003 — PostgreSQL</h3><p>Tek kaynak ilişkisel DB.</p></a>
+    <a class="card" href="decisions/004-redis-rate-limit.html"><h3>004 — Redis Limit</h3><p>Dağıtık sayaç + fallback.</p></a>
+    <a class="card" href="decisions/005-turnstile-bot-korumasi.html"><h3>005 — Turnstile</h3><p>Bot koruması.</p></a>
+    <a class="card" href="decisions/006-hmac-token-ve-sifreli-govde.html"><h3>006 — HMAC Token</h3><p>Stateless auth + şifreli gövde.</p></a>
+    <a class="card" href="decisions/007-markdown-kaynak-gercek.html"><h3>007 — Markdown</h3><p>Kaynak gerçek olarak markdown.</p></a>
+  </div>
+
+  <h2 style="margin:22px 0 10px;font-size:15px">Rehberler</h2>
+  <div class="grid">
+    <a class="card" href="guides/getting-started.html"><h3>Başlangıç</h3><p>Kurulum ve ilk not.</p></a>
+    <a class="card" href="guides/development.html"><h3>Geliştirme</h3><p>Kod düzeni ve komutlar.</p></a>
+    <a class="card" href="guides/deployment.html"><h3>Deployment</h3><p>Docker ve env.</p></a>
+    <a class="card" href="guides/environment-variables.html"><h3>Ortam Değişkenleri</h3><p>Tüm env’ler.</p></a>
+    <a class="card" href="guides/roles-and-permissions.html"><h3>Roller</h3><p>Admin / developer / izinler.</p></a>
+  </div>
+
+  <div id="api">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <strong>API Referansı</strong><span style="color:var(--sub);font-size:12px">OpenAPI 3.1 — Scalar</span>
+      <a href="api/openapi.yaml" style="margin-left:auto;font-size:12px">openapi.yaml (ham)</a>
+    </div>
+    <div style="height:720px">
+      <script id="api-reference" data-url="api/openapi.yaml"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    </div>
+  </div>
+
+  <p style="margin:18px 0;color:var(--sub);font-size:12px">İpucu: GitHub’da <a href="https://github.com/yazilim-tornacisi/defter-web/tree/main/docs">docs/</a> klasörünü gezerek de tüm markdown’ları okuyabilirsin. GitHub Pages Jekyll ile her <code>.md</code>’yi otomatik <code>.html</code>’e çevirir.</p>
+</div>
 </body>
 </html>
