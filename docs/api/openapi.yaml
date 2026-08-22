@@ -1,0 +1,809 @@
+openapi: 3.1.0
+info:
+  title: Defter API
+  description: |
+    **Defter** — not alma, paylaşım ve işbirliği platformunun REST API’si.
+
+    Tüm istekler `application/json` döner. Auth gerektiren endpoint’ler `Authorization: Bearer <token>` ister.
+    Token formatı `base64url({uid,exp}).HMAC-SHA256` ve 30 gün geçerlidir.
+
+    *Scalar Docs* bu dosyayı doğrudan render eder.
+  version: 1.0.0
+  contact:
+    name: Defter
+    url: https://github.com/yazilim-tornacisi/defter-web
+
+servers:
+  - url: /
+    description: Same origin (Vite proxy / nginx). Tüm path’ler `/api` ile başlar.
+
+tags:
+  - name: Health
+    description: Servis durumu
+  - name: Auth
+    description: Kayıt, giriş, QR ile giriş ve parola işlemleri
+  - name: Notes
+    description: Not CRUD ve paylaşım
+  - name: Folders
+    description: Klasörler
+  - name: Tags
+    description: Etiketler
+  - name: Friends
+    description: Arkadaşlık istekleri ve arama
+  - name: Public
+    description: Herkese açık paylaşım (auth’suz)
+  - name: Analytics
+    description: Public not görüntülenme analitiği (kendi notları)
+  - name: Admin
+    description: Yönetici — kullanıcı/not/günlük/limit yönetimi
+  - name: Dev
+    description: Geliştirici — sistem metrikleri ve rate limit gözlemi
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: HMAC imzalı token. `POST /api/auth/login` veya `register` ile alınır.
+
+  schemas:
+    AuthUser:
+      type: object
+      required: [id, email, username, isAdmin]
+      properties:
+        id: { type: string, format: uuid, example: "3fa85f64-5717-4562-b3fc-2c963f66afa6" }
+        email: { type: string, format: email, example: "ahmet@example.com" }
+        username: { type: string, example: "ahmet_kaya" }
+        isAdmin: { type: boolean }
+        isDeveloper: { type: boolean }
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string, description: "Bearer token (payload.hmac)", example: "eyJ1aWQiOiIzZmE4NS4uIn0.abc123" }
+        user: { $ref: "#/components/schemas/AuthUser" }
+
+    Tag:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "proje" }
+
+    Folder:
+      type: object
+      required: [id, name, noteCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "İş" }
+        createdAt: { type: string, format: date-time }
+        noteCount: { type: integer, example: 3 }
+
+    Note:
+      type: object
+      required: [id, title, content, folderId, isPinned, createdAt, updatedAt, tags, permission]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, example: "Untitled" }
+        content: { type: string, description: "Markdown", example: "# Merhaba\nBu bir not." }
+        folderId: { type: string, format: uuid, nullable: true }
+        folderName: { type: string, nullable: true }
+        isPinned: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        tags: { type: array, items: { $ref: "#/components/schemas/Tag" } }
+        permission: { type: string, enum: [owner, view, edit] }
+        sharedByUsername: { type: string, nullable: true }
+        shareToken: { type: string, nullable: true, description: "Sadece owner için" }
+
+    FriendSearchResult:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        friendship: { type: string, enum: [none, pending_outgoing, pending_incoming, friends] }
+
+    Friend:
+      type: object
+      properties:
+        id: { type: string, description: "friendship id" }
+        userId: { type: string, format: uuid }
+        username: { type: string }
+        since: { type: string, format: date-time }
+
+    FriendRequests:
+      type: object
+      properties:
+        incoming:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              user: { type: object, properties: { id: { type: string }, username: { type: string } } }
+              createdAt: { type: string, format: date-time }
+        outgoing:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              user: { type: object, properties: { id: { type: string }, username: { type: string } } }
+              createdAt: { type: string, format: date-time }
+
+    ShareEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        username: { type: string }
+        permission: { type: string, enum: [view, edit] }
+        createdAt: { type: string, format: date-time }
+
+    PublicNote:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        username: { type: string }
+
+    DailyViewsPoint:
+      type: object
+      required: [day, views]
+      properties:
+        day: { type: string, example: "2026-08-21", description: "YYYY-MM-DD" }
+        views: { type: integer }
+
+    ShareAnalytics:
+      type: object
+      properties:
+        totalViews: { type: integer }
+        totalUniqueIps: { type: integer }
+        todayViews: { type: integer }
+        notes:
+          type: array
+          items:
+            type: object
+            properties:
+              noteId: { type: string, format: uuid }
+              title: { type: string }
+              shareToken: { type: string }
+              viewCount: { type: integer }
+              uniqueIpCount: { type: integer }
+              firstViewAt: { type: string, format: date-time, nullable: true }
+              lastViewAt: { type: string, format: date-time, nullable: true }
+        daily:
+          type: array
+          items: { $ref: "#/components/schemas/DailyViewsPoint" }
+
+    DevMetrics:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            users: { type: integer }
+            notes: { type: integer }
+            publicShares: { type: integer }
+            friendships: { type: integer }
+            apiCalls: { type: integer }
+            endpointCount: { type: integer }
+        daily:
+          type: object
+          properties:
+            users: { type: array, items: { $ref: "#/components/schemas/DailyViewsPoint" } }
+            notes: { type: array, items: { $ref: "#/components/schemas/DailyViewsPoint" } }
+            apiCalls: { type: array, items: { $ref: "#/components/schemas/DailyViewsPoint" } }
+        endpoints:
+          type: array
+          items:
+            type: object
+            properties:
+              method: { type: string, example: "GET" }
+              route: { type: string, example: "/api/notes" }
+              count: { type: integer }
+        rateLimit:
+          type: object
+          properties:
+            totalBlocked: { type: integer }
+            todayBlocked: { type: integer }
+            dailyBlocked: { type: array, items: { $ref: "#/components/schemas/DailyViewsPoint" } }
+            topBlockedRoutes:
+              type: array
+              items:
+                type: object
+                properties:
+                  method: { type: string }
+                  route: { type: string }
+                  count: { type: integer }
+            topBlockedIps:
+              type: array
+              items:
+                type: object
+                properties:
+                  ip: { type: string }
+                  count: { type: integer }
+            config:
+              type: object
+              properties:
+                defaults:
+                  type: object
+                  properties:
+                    windowMs: { type: integer, example: 60000 }
+                    max: { type: integer, example: 120 }
+                overrides:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      windowMs: { type: integer }
+                      max: { type: integer }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: "Not found" }
+
+  responses:
+    BadRequest: { description: Geçersiz istek, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Unauthorized: { description: Token yok veya geçersiz, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Forbidden: { description: Yetki yok veya engelli, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    NotFound: { description: Kaynak bulunamadı, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    TooManyRequests: { description: Rate limit aşıldı, headers: { Retry-After: { schema: { type: integer } }, X-RateLimit-Limit: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Sağlık kontrolü
+      description: Servisin ayakta olup olmadığını döner. Rate limit ve metrik dışında tutulur.
+      security: []
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean, example: true } } } } } }
+
+  /api/auth/public-key:
+    get:
+      tags: [Auth]
+      summary: RSA public key
+      description: İstemci login/register gövdesini şifrelemek için sunucunun RSA public key’ini alır.
+      security: []
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: object, properties: { publicKey: { type: string } } } } } }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Kayıt ol
+      description: |
+        Yeni kullanıcı oluşturur. İstek gövdesi düz JSON veya `enc` ile RSA+AES şifreli olabilir.
+        `TURNSTILE_SECRET` set ise `captchaToken` zorunludur ve Cloudflare’e doğrulatılır.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username: { type: string, pattern: "^[a-zA-Z0-9_]{3,20}$", example: "ahmet_kaya" }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                captchaToken: { type: string, description: "Turnstile token" }
+                enc: { type: object, description: "Şifreli payload (wrappedKey, iv, data base64)" }
+            examples:
+              plain:
+                value: { username: "ahmet_kaya", email: "ahmet@example.com", password: "sifre1234", captchaToken: "0x..." }
+      responses:
+        201: { description: Oluşturuldu, content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Giriş yap
+      description: E-posta **veya** kullanıcı adı + parola ile giriş. `captchaToken` Turnstile aktifse zorunlu.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, description: "E-posta veya kullanıcı adı", example: "ahmet_kaya" }
+                password: { type: string }
+                captchaToken: { type: string }
+                enc: { type: object }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/pair/start:
+    post:
+      tags: [Auth]
+      summary: QR giriş kodu oluştur (public)
+      description: Masaüstü login ekranı QR oluşturur. `code` 32 byte base64url, SHA256’ı DB’de saklanır. 3 dk geçerli.
+      security: []
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { code: { type: string }, expiresIn: { type: integer, example: 180 } } }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/pair/wait:
+    get:
+      tags: [Auth]
+      summary: QR onayı bekle (poll)
+      description: Masaüstü `pair/start` sonrası her 2.5 sn’de çağırır. `approved` olunca tek seferlik token döner ve kayıt `completed` olur.
+      security: []
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [status]
+                    properties: { status: { type: string, enum: [pending] } }
+                  - allOf:
+                      - { $ref: "#/components/schemas/AuthResponse" }
+                      - type: object
+                        properties: { status: { type: string, enum: [approved] } }
+        404: { $ref: "#/components/responses/NotFound" }
+        410: { description: Süresi doldu veya kullanıldı, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/pair/info:
+    get:
+      tags: [Auth]
+      summary: QR bilgisi (onay ekranı)
+      description: Mobil cihaz QR’ı taradığında neyi onaylayacağını gösterir. Auth gerektirir.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: object, properties: { status: { type: string }, createdAt: { type: string, format: date-time }, expiresAt: { type: string, format: date-time }, deviceUa: { type: string, nullable: true } } } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        404: { $ref: "#/components/responses/NotFound" }
+        410: { description: Süresi doldu }
+
+  /api/auth/pair/approve:
+    post:
+      tags: [Auth]
+      summary: QR’ı onayla
+      description: Giriş yapmış mobil cihaz QR’daki kodu onaylar; masaüstü bir sonraki poll’de token alır.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string } } }
+      responses:
+        200: { description: Onaylandı, content: { application/json: { schema: { type: object, properties: { approved: { type: boolean, example: true } } } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        404: { $ref: "#/components/responses/NotFound" }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Mevcut kullanıcı
+      security: [{ bearerAuth: [] }]
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: object, properties: { user: { $ref: "#/components/schemas/AuthUser" } } } } } }
+        401: { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/me/logs:
+    get:
+      tags: [Auth]
+      summary: Kendi giriş kayıtları (son 50)
+      security: [{ bearerAuth: [] }]
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: array, items: { type: object, properties: { id: { type: string }, identifier: { type: string }, success: { type: boolean }, ip: { type: string, nullable: true }, userAgent: { type: string, nullable: true }, createdAt: { type: string, format: date-time } } } } } } }
+
+  /api/auth/me/password:
+    patch:
+      tags: [Auth]
+      summary: Parola değiştir
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [currentPassword, newPassword], properties: { currentPassword: { type: string }, newPassword: { type: string, minLength: 8 } } }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: object, properties: { updated: { type: boolean } } } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        401: { $ref: "#/components/responses/Unauthorized" }
+
+  /api/notes:
+    get:
+      tags: [Notes]
+      summary: Notları listele
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string }, description: "Başlık/içerikte ILIKE" }
+        - { name: folderId, in: query, schema: { type: string, format: uuid } }
+        - { name: tagId, in: query, schema: { type: string, format: uuid } }
+        - { name: view, in: query, schema: { type: string, enum: [pinned] } }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Note" } } } } }
+    post:
+      tags: [Notes]
+      summary: Not oluştur
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+                folderId: { type: string, format: uuid, nullable: true }
+                isPinned: { type: boolean }
+                tagIds: { type: array, items: { type: string, format: uuid } }
+      responses:
+        201: { description: Oluşturuldu, content: { application/json: { schema: { $ref: "#/components/schemas/Note" } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        403: { $ref: "#/components/responses/Forbidden" }
+
+  /api/notes/{id}:
+    get:
+      tags: [Notes]
+      summary: Not getir
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Note" } } } }
+        404: { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Notes]
+      summary: Not güncelle
+      description: Owner tüm alanları, `edit` yetkisi sadece `title`/`content` güncelleyebilir.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { title: { type: string }, content: { type: string }, folderId: { type: string, nullable: true }, isPinned: { type: boolean }, tagIds: { type: array, items: { type: string } } } }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Note" } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+    delete:
+      tags: [Notes]
+      summary: Not sil
+      description: Sadece owner.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        204: { description: Silindi }
+        404: { $ref: "#/components/responses/NotFound" }
+
+  /api/notes/{id}/shares:
+    get:
+      tags: [Notes]
+      summary: Paylaşımları listele
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ShareEntry" } } } } } }
+    post:
+      tags: [Notes]
+      summary: Arkadaşa paylaş
+      description: Hedef `friendships` ile arkadaş olmalı. Varsa yetki güncellenir.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [userId, permission], properties: { userId: { type: string, format: uuid }, permission: { type: string, enum: [view, edit] } } } } } }
+      responses:
+        201: { description: Paylaşıldı }
+        400: { $ref: "#/components/responses/BadRequest" }
+
+  /api/notes/{id}/shares/{shareId}:
+    patch:
+      tags: [Notes]
+      summary: Paylaşım yetkisini değiştir
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: shareId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [permission], properties: { permission: { type: string, enum: [view, edit] } } } } } }
+      responses: { 200: { description: OK } }
+    delete:
+      tags: [Notes]
+      summary: Paylaşımı kaldır
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: shareId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { 204: { description: Kaldırıldı } }
+
+  /api/notes/{id}/share:
+    post:
+      tags: [Notes]
+      summary: Herkese açık link oluştur
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: object, properties: { shareToken: { type: string } } } } } } }
+    delete:
+      tags: [Notes]
+      summary: Herkese açık linki kapat
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 204: { description: Kapatıldı } }
+
+  /api/share/{token}:
+    get:
+      tags: [Public]
+      summary: Herkese açık notu getir
+      description: Auth’suz. Her çağrıda `share_views` satırı asenkron yazılır.
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PublicNote" } } } }
+        404: { $ref: "#/components/responses/NotFound" }
+
+  /api/folders:
+    get:
+      tags: [Folders]
+      summary: Klasörleri listele
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Folder" } } } } } }
+    post:
+      tags: [Folders]
+      summary: Klasör oluştur
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string } } } } } }
+      responses: { 201: { description: Oluşturuldu, content: { application/json: { schema: { $ref: "#/components/schemas/Folder" } } } } }
+
+  /api/folders/{id}:
+    patch:
+      tags: [Folders]
+      summary: Klasör yeniden adlandır
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string } } } } } }
+      responses: { 200: { description: OK } }
+    delete:
+      tags: [Folders]
+      summary: Klasör sil (içindeki notlar korunur)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 204: { description: Silindi } }
+
+  /api/tags:
+    get:
+      tags: [Tags]
+      summary: Etiketleri listele
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Tag" } } } } } }
+    post:
+      tags: [Tags]
+      summary: Etiket oluştur
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string } } } } } }
+      responses: { 201: { description: Oluşturuldu } }
+
+  /api/tags/{id}:
+    delete:
+      tags: [Tags]
+      summary: Etiket sil
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 204: { description: Silindi } }
+
+  /api/friends/search:
+    get:
+      tags: [Friends]
+      summary: Kullanıcı ara
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: q, in: query, required: true, schema: { type: string, minLength: 2 } }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/FriendSearchResult" } } } } } }
+
+  /api/friends:
+    get:
+      tags: [Friends]
+      summary: Arkadaş listesi
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Friend" } } } } } }
+
+  /api/friends/requests:
+    get:
+      tags: [Friends]
+      summary: Bekleyen istekler
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FriendRequests" } } } } }
+
+  /api/friends/request:
+    post:
+      tags: [Friends]
+      summary: Arkadaşlık isteği gönder
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [userId], properties: { userId: { type: string, format: uuid } } } } } }
+      responses:
+        201: { description: Gönderildi, content: { application/json: { schema: { type: object, properties: { id: { type: string }, accepted: { type: boolean } } } } } }
+        400: { $ref: "#/components/responses/BadRequest" }
+        404: { $ref: "#/components/responses/NotFound" }
+        429: { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/friends/{id}/accept:
+    post:
+      tags: [Friends]
+      summary: İsteği kabul et
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { 200: { description: Kabul edildi } }
+  /api/friends/{id}/decline:
+    post:
+      tags: [Friends]
+      summary: İsteği reddet/iptal et
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { 204: { description: Silindi } }
+  /api/friends/{id}:
+    delete:
+      tags: [Friends]
+      summary: Arkadaşlığı bitir
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { 204: { description: Silindi } }
+
+  /api/analytics:
+    get:
+      tags: [Analytics]
+      summary: Kendi public notlarının analitiği
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ShareAnalytics" } } } } }
+
+  /api/analytics/notes/{id}/daily:
+    get:
+      tags: [Analytics]
+      summary: Tek notun günlük serisi
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }
+      responses:
+        200: { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/DailyViewsPoint" } } } } }
+        404: { $ref: "#/components/responses/NotFound" }
+
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: Tüm kullanıcılar
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK } }
+  /api/admin/notes:
+    get:
+      tags: [Admin]
+      summary: Tüm notlar (filtreli)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: q, in: query, schema: { type: string } }]
+      responses: { 200: { description: OK } }
+  /api/admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Kullanıcı detayı
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: OK } }
+  /api/admin/notes/{id}/views:
+    get:
+      tags: [Admin]
+      summary: Not görüntülenme kayıtları (son 50)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: OK } }
+  /api/admin/users/{id}/ban:
+    patch:
+      tags: [Admin]
+      summary: Engelle
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: Engellendi } }
+  /api/admin/users/{id}/unban:
+    patch:
+      tags: [Admin]
+      summary: Engel kaldır
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 200: { description: Kaldırıldı } }
+  /api/admin/users/{id}/reset-password:
+    post:
+      tags: [Admin]
+      summary: Parola sıfırla
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [newPassword], properties: { newPassword: { type: string, minLength: 8 } } } } } }
+      responses: { 200: { description: Sıfırlandı } }
+  /api/admin/users/{id}/role:
+    patch:
+      tags: [Admin]
+      summary: Yönetici yap/kaldır
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [isAdmin], properties: { isAdmin: { type: boolean } } } } } }
+      responses: { 200: { description: OK } }
+  /api/admin/users/{id}/dev-role:
+    patch:
+      tags: [Admin]
+      summary: Developer yap/kaldır
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [isDeveloper], properties: { isDeveloper: { type: boolean } } } } } }
+      responses: { 200: { description: OK } }
+  /api/admin/logs:
+    get:
+      tags: [Admin]
+      summary: Giriş günlükleri
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: success, in: query, schema: { type: string, enum: [true, false] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
+      responses: { 200: { description: OK } }
+  /api/admin/users/{userId}/notes/{noteId}:
+    delete:
+      tags: [Admin]
+      summary: Kullanıcının notunu sil
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: noteId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { 204: { description: Silindi } }
+  /api/admin/notes/{id}:
+    delete:
+      tags: [Admin]
+      summary: Notu sil
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { 204: { description: Silindi } }
+  /api/admin/settings:
+    get:
+      tags: [Admin]
+      summary: Global limit ayarları
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK } }
+    patch:
+      tags: [Admin]
+      summary: Global limitleri güncelle
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { maxNotesPerUser: { type: integer, minimum: 1, maximum: 100000 }, maxNoteContentLength: { type: integer, minimum: 100, maximum: 2000000 } } } } } }
+      responses: { 200: { description: Güncellendi } }
+  /api/admin/users/{id}/limits:
+    patch:
+      tags: [Admin]
+      summary: Kullanıcı özel limitleri
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { maxNotes: { type: integer, nullable: true }, maxNoteChars: { type: integer, nullable: true } } } } } }
+      responses: { 200: { description: Güncellendi } }
+
+  /api/dev/metrics:
+    get:
+      tags: [Dev]
+      summary: Sistem metrikleri
+      description: Developer rolü gerektirir. 13 paralel sorgu ile kullanıcı/not/call ve rate limit metrikleri.
+      security: [{ bearerAuth: [] }]
+      responses: { 200: { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DevMetrics" } } } } }

@@ -1,104 +1,43 @@
-# defter-web — Notes (frontend)
+# Defter
 
-> Bu depo, Notes uygulamasının **frontend** kısmını içerir (React + TypeScript + Vite + Tailwind).
-> Backend (`defter-api`) ayrı depodadır.
+Notlarınız tek yerde — yazın, organize edin, paylaşın ve birlikte düzenleyin.
 
-Sıfırdan geliştirilmiş, sade ve hızlı bir not alma uygulaması. Flatnotes kadar sade, Notion kadar karmaşık değil.
+Modern not alma platformu: **Fastify + PostgreSQL + Redis** (API) / **React + Vite + TipTap/Yjs + Tailwind + PWA** (Web). Zengin editör, gerçek zamanlı işbirliği, arkadaş ve public paylaşım, admin/developer panelleri, analitik ve bot koruması tek pakette.
 
-## Özellikler
-
-- Not oluşturma, düzenleme, silme (otomatik kayıt)
-- **Kullanıcı sistemi**: kayıt/giriş, her kullanıcı yalnızca kendi notlarını, klasörlerini ve etiketlerini görür
-- Klasör ve etiket ile organize etme (notları klasöre taşıma dahil)
-- Başlık + içerik araması (anlık, debounce'lu)
-- Markdown desteği: düzenleme / bölünmüş görünüm (split) / önizleme
-- **LaTeX (KaTeX)**: inline `$...$` ve blok `$$...$$` — canlı önizlemede render edilir
-- Favori / pinleme
-- Son düzenlenenler (liste `updated_at`'e göre sıralı)
-- **Eşzamanlı düzenleme** (WebSocket, collab)
-- **Paylaşım**: herkese açık bağlantı + arkadaşlarla paylaşım
-- Temiz, minimal, koyu tema öncelikli arayüz (açık tema da var), özel app ikonu
-- **%100 mobil-first**: drawer sidebar (swipe ile kapanır), donanım geri butonu desteği, iOS klavye/zoom sorunları çözüldü, safe-area (çentik) desteği, telefonda liste↔editör ayrı ekran deneyimi, tablette 2 bölmeli düzen
-- **Güvenlik**: giriş bilgileri şifreli iletilir (AES-GCM + RSA-OAEP), kişisel giriş logları, admin paneli
-
-## Teknolojiler
-
-- **Frontend:** React + TypeScript + Vite + Tailwind CSS
-- **Markdown:** react-markdown + remark-gfm + remark-math/rehype-katex (KaTeX)
-- **Eşzamanlı düzenleme:** yjs + y-websocket + Tiptap
-- **Dağıtım:** Tamamen Dockerize (nginx + `docker-compose`)
-
-## LaTeX
-
-Notlarda KaTeX ile matematik render edilir:
-
-```markdown
-Inline: $E = mc^2$
-
-Blok:
-
-$$
-\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
-$$
-```
-
-Blok matematik (`$$...$$`) kendi satırında yazılmalıdır. Bozuk formüller önizlemeyi kırmaz (sadece kırmızıyla işaretlenir).
-
-## Hızlı Başlangıç (Docker)
+## Hızlı Başlangıç
 
 ```bash
-cp .env.example .env        # ilk seferde (WEB_PORT)
-./run.sh                    # veya: docker compose up --build -d
+cp .env.example .env
+# .env içini doldur: DATABASE_URL, AUTH_SECRET, REDIS_HOST/PASS (opsiyonel), TURNSTILE_*
+docker compose up --build -d
+# web  → http://localhost:80
+# api  → http://localhost:4000  (health: /api/health)
 ```
 
-- Web : http://localhost:35804 (`WEB_PORT` ile değiştirilebilir)
+Geliştirme için `guides/getting-started.md`’ye bakın.
 
-## API Proxy'si
+## Dokümantasyon — Scalar Docs
 
-nginx, `/api/` isteklerini `http://api:4000` adresine iletir (SPA fallback ile).
-Frontend'in çalışması için backend'in aynı Docker ağında `api:4000` üzerinde çalışması gerekir.
-İstem dışı bir adres için `nginx.conf` içindeki `proxy_pass` değerini değiştirin.
+Tüm doküman `docs/` altında, API `docs/api/openapi.yaml` (OpenAPI 3.1) ile Scalar uyumludur.
 
-## Yerel Geliştirme (Docker'sız, hot-reload)
+- **Yerel önizleme (Scalar CLI):**
+  ```bash
+  npx @scalar/cli preview docs/api/openapi.yaml
+  # veya
+  npx @scalar/cli serve docs/api/openapi.yaml --watch
+  ```
+- Alternatif: [Scalar Studio](https://docs.scalar.com) → *Import OpenAPI File* → `docs/api/openapi.yaml`’ı yükle.
+- Statik site: `docs/` klasörünü herhangi bir markdown → HTML pipeline’ı ile yayınlayabilirsin; `docs/api/openapi.yaml` Scalar tarafından otomatik render edilir.
 
-```bash
-npm install
-npm run dev
-```
+**Doküman haritası:**
 
-Frontend, Vite dev proxy'si ile `/api` isteklerini backend'e iletir.
+| Yol | İçerik |
+|-----|--------|
+| `docs/introduction.md` | Amaç, problem, hedef kitle, mimari özet |
+| `docs/features/*.md` | 12 feature dosyası (notlar, editör, işbirliği, paylaşım, arkadaşlar, auth, QR, rate limit, analitik, admin, developer, PWA) |
+| `docs/decisions/*.md` | 7 ADR (Fastify, TipTap/Yjs, Postgres, Redis limit, Turnstile, HMAC+şifreli gövde, markdown kaynak) |
+| `docs/guides/*.md` | getting-started, development, deployment, environment-variables, roles-and-permissions |
+| `docs/api/openapi.yaml` | Tüm endpoint’ler, şemalar, auth, örnekler (3.1) |
+| `docs/changelog.md` | Migration sırası ve sürüm notları |
 
-## Proje Yapısı
-
-```
-├── docker-compose.yml          # Web servisi (nginx)
-├── .env                        # WEB_PORT (gitignore'da)
-├── run.sh                      # tek komutla ayağa kaldıran betik
-├── nginx.conf                  # SPA + /api proxy
-├── public/favicon.svg          # app ikonu
-└── src/
-    ├── App.tsx                 # durum yönetimi, filtreleme, oturum akışı, collab
-    ├── api.ts                  # API istemcisi (Bearer token, şifreli giriş)
-    ├── lib/
-    │   ├── auth.ts             # token/kullanıcı saklama
-    │   ├── crypto.ts           # AES-GCM + RSA-OAEP şifreli giriş
-    │   └── yjs.ts              # eşzamanlı düzenleme istemcisi
-    ├── types.ts
-    └── components/
-        ├── AuthScreen.tsx      # giriş / kayıt
-        ├── Sidebar.tsx         # görünümler, klasörler, etiketler, kullanıcı/çıkış
-        ├── NoteList.tsx        # arama + liste (klasöre taşıma dahil)
-        ├── Editor.tsx          # başlık, araçlar, markdown editör
-        ├── Markdown.tsx        # react-markdown sarmalayıcı
-        ├── SettingsPage.tsx    # profil / görünüm / parola / güvenlik logları
-        ├── AdminPage.tsx       # admin paneli (kullanıcılar, notlar, loglar)
-        ├── ShareDialog.tsx     # paylaşım ayarları
-        ├── PublicNote.tsx      # /share/:token görünümü
-        ├── Logo.tsx            # app ikonu (SVG)
-        └── EmptyState.tsx
-```
-
-## Kısayollar
-
-- `Cmd/Ctrl + N` — yeni not
-- `Cmd/Ctrl + K` — aramaya odaklan
+Sorun/öneri için issue açın veya `docs/`’ta doğrudan düzenleme yapıp PR gönderin.
