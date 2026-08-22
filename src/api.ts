@@ -87,6 +87,16 @@ export const api = {
       method: 'POST',
       body: await secureBody({ email: emailOrUsername, password }),
     }),
+  pairStart: () => request<{ code: string; expiresIn: number }>('/auth/pair/start', { method: 'POST' }),
+  pairWait: (code: string) =>
+    request<{ status: 'pending' } | ({ status: 'approved' } & AuthResponse)>(`/auth/pair/wait?code=${encodeURIComponent(code)}`),
+  pairInfo: (code: string) =>
+    request<{ status: string; createdAt: string; expiresAt: string; deviceUa: string | null }>(
+      `/auth/pair/info?code=${encodeURIComponent(code)}`,
+    ),
+  pairApprove: (code: string) =>
+    request<{ approved: boolean }>('/auth/pair/approve', { method: 'POST', body: JSON.stringify({ code }) }),
+
   me: () => request<{ user: AuthUser }>('/auth/me'),
   myLogs: () => request<AuthLog[]>('/auth/me/logs'),
 

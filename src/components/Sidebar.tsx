@@ -14,6 +14,7 @@ import {
   Moon,
   Pencil,
   Plus,
+  QrCode,
   Settings,
   Sun,
   Tag as TagIcon,
@@ -50,6 +51,7 @@ interface SidebarProps {
   onOpenAdmin?: () => void
   onOpenSettings?: () => void
   onOpenAnalytics?: () => void
+  onOpenScanner?: () => void
   isAdmin?: boolean
 }
 
@@ -81,6 +83,7 @@ export function Sidebar(props: SidebarProps) {
     onOpenAdmin,
     onOpenSettings,
     onOpenAnalytics,
+    onOpenScanner,
     isAdmin,
   } = props
 
@@ -143,6 +146,12 @@ export function Sidebar(props: SidebarProps) {
           label="Paylaşım Analizi"
           active={false}
           onClick={() => onOpenAnalytics?.()}
+        />
+        <NavItem
+          icon={<QrCode className="h-4 w-4" />}
+          label="QR Tara"
+          active={false}
+          onClick={() => onOpenScanner?.()}
         />
         {isAdmin && (
           <NavItem

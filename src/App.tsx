@@ -17,6 +17,8 @@ import { SettingsPage } from './components/SettingsPage'
 import { ShareAnalyticsPage } from './components/ShareAnalyticsPage'
 import { DeveloperPage } from './components/DeveloperPage'
 import { PublicNote } from './components/PublicNote'
+import { PairApprovePage } from './components/PairApprovePage'
+import { QrScannerDialog } from './components/QrScannerDialog'
 import { X } from 'lucide-react'
 
 type Theme = 'dark' | 'light'
@@ -49,6 +51,12 @@ export default function App() {
   const [adminOpen, setAdminOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  const [pairCode, setPairCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    if (window.location.pathname !== '/pair') return null
+    return new URLSearchParams(window.location.search).get('code')
+  })
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   )
@@ -77,6 +85,7 @@ export default function App() {
     setFriendToast(null)
     setSettingsOpen(false)
     setAnalyticsOpen(false)
+    setScannerOpen(false)
   }, [])
 
   // Kayıtlı token'ı arka planda doğrula; geçersizse oturumu kapat
@@ -452,6 +461,10 @@ export default function App() {
       setSidebarOpen(false)
       setAnalyticsOpen(true)
     },
+    onOpenScanner: () => {
+      setSidebarOpen(false)
+      setScannerOpen(true)
+    },
     isAdmin: auth?.user.isAdmin === true,
   }
 
@@ -464,6 +477,31 @@ export default function App() {
 
   if (publicToken) {
     return <PublicNote token={publicToken} />
+  }
+
+  // QR ile giriş — onaylayıcı cihaz (/pair?code=...) doğrudan bu route'a gelir
+  if (pairCode) {
+    const clearPair = () => {
+      setPairCode(null)
+      window.history.replaceState(null, '', '/')
+    }
+    if (!auth) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center bg-base px-4 py-10 text-ink">
+          <div className="w-full max-w-sm rounded-2xl border border-edge bg-surface p-6 text-center shadow-xl">
+            <p className="text-sm font-medium text-ink">QR girişini onaylamak için önce giriş yapmalısın</p>
+            <p className="mt-1 text-xs text-sub">Defter hesabına giriş yaptıktan sonra QR'ı tekrar tara.</p>
+            <button
+              onClick={clearPair}
+              className="mt-4 w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            >
+              Giriş ekranına git
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return <PairApprovePage code={pairCode} onDone={clearPair} />
   }
 
   if (!auth) {
@@ -584,6 +622,16 @@ export default function App() {
         initialTab={friendsTab}
         onClose={() => setFriendsOpen(false)}
         onCountChange={setFriendReqCount}
+      />
+
+      <QrScannerDialog
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={(code) => {
+          setScannerOpen(false)
+          setPairCode(code)
+          window.history.pushState(null, '', `/pair?code=${encodeURIComponent(code)}`)
+        }}
       />
     </div>
   )
