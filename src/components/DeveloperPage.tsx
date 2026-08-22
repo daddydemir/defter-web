@@ -9,6 +9,7 @@ import {
   ListTree,
   LogOut,
   RefreshCw,
+  ShieldAlert,
   Terminal,
   UsersRound,
 } from 'lucide-react'
@@ -154,9 +155,95 @@ export function DeveloperPage({ onLogout }: { onLogout?: () => void }) {
               )}
             </section>
 
+            {/* Rate limit — engellenen istekler */}
+            <section className="mt-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold text-ink">Rate Limit — Engellenen istekler</h2>
+                <span className="ml-auto text-[11px] text-sub">
+                  Redis tabanlı · pencere {Math.round((data.rateLimit.config.defaults.windowMs ?? 60000) / 1000)}s
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard label="Toplam engellenen" value={data.rateLimit.totalBlocked} icon={<ShieldAlert className="h-4 w-4" />} />
+                <StatCard label="Bugün engellenen" value={data.rateLimit.todayBlocked} icon={<ShieldAlert className="h-4 w-4" />} />
+              </div>
+
+              <ChartCard
+                title="Son 30 günde engellenen istek"
+                points={fillDays(data.rateLimit.dailyBlocked, 30)}
+                valueLabel="engellenen"
+              />
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="overflow-hidden rounded-xl border border-edge bg-surface">
+                  <div className="border-b border-edge px-4 py-3 text-sm font-semibold text-ink">En çok engellenen endpoint'ler</div>
+                  {data.rateLimit.topBlockedRoutes.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-sub/70">Henüz engellenen istek yok.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {data.rateLimit.topBlockedRoutes.map((e) => (
+                          <EndpointRow key={`${e.method} ${e.route}`} e={e} />
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-edge bg-surface">
+                  <div className="border-b border-edge px-4 py-3 text-sm font-semibold text-ink">En çok engellenen IP'ler</div>
+                  {data.rateLimit.topBlockedIps.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-sub/70">Henüz veri yok.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {data.rateLimit.topBlockedIps.map((r) => (
+                          <tr key={r.ip} className="border-b border-edge/60 last:border-b-0">
+                            <td className="px-4 py-2 font-mono text-xs text-ink">{r.ip}</td>
+                            <td className="w-24 px-4 py-2 text-right tabular-nums text-sub">{r.count.toLocaleString('tr-TR')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              <details className="overflow-hidden rounded-xl border border-edge bg-surface">
+                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-ink">Aktif limit kuralları</summary>
+                <div className="border-t border-edge px-4 py-3 text-xs">
+                  <div className="mb-2 text-sub">
+                    Varsayılan: {data.rateLimit.config.defaults.max} istek /{' '}
+                    {Math.round(data.rateLimit.config.defaults.windowMs / 1000)}s (IP başına, endpoint bazlı)
+                  </div>
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-wider text-sub">
+                        <th className="py-1 font-medium">Endpoint</th>
+                        <th className="py-1 text-right font-medium">Limit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-edge/60">
+                      {Object.entries(data.rateLimit.config.overrides).map(([k, v]) => (
+                        <tr key={k}>
+                          <td className="py-1.5 font-mono text-ink">{k}</td>
+                          <td className="py-1.5 text-right tabular-nums text-sub">
+                            {v.max} / {Math.round(v.windowMs / 1000)}s
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
+
             <p className="mt-4 text-[11px] leading-relaxed text-sub/70">
               Metrikler sunucuda 30 saniyelik pencerelerle biriktirilip veritabanına yazılır; günlük toplamlar
-              (method, route, gün) bazında saklanır.
+              (method, route, gün) bazında saklanır. Rate limit sayaçları Redis'te tutulur, engellenen istekler günlük olarak
+              veritabanına aktarılır.
             </p>
           </>
         ) : null}

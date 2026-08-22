@@ -106,6 +106,14 @@ export interface DevMetrics {
   }
   daily: DevDailySeries
   endpoints: DevEndpointStat[]
+  rateLimit: {
+    totalBlocked: number
+    todayBlocked: number
+    dailyBlocked: DailyViewsPoint[]
+    topBlockedRoutes: DevEndpointStat[]
+    topBlockedIps: { ip: string; count: number }[]
+    config: { defaults: { windowMs: number; max: number }; overrides: Record<string, { windowMs: number; max: number }> }
+  }
 }
 
 export interface AdminLimits {
