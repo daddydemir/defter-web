@@ -5,6 +5,8 @@ RUN npm ci
 COPY tsconfig*.json vite.config.ts tailwind.config.js postcss.config.js index.html ./
 COPY src ./src
 COPY public/* ./
+ARG VITE_TURNSTILE_SITEKEY
+ENV VITE_TURNSTILE_SITEKEY=$VITE_TURNSTILE_SITEKEY
 RUN npm run build
 
 FROM nginx:1.27-alpine

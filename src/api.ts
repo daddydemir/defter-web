@@ -77,15 +77,15 @@ async function secureBody(payload: Record<string, unknown>): Promise<string> {
 }
 
 export const api = {
-  register: async (username: string, email: string, password: string) =>
+  register: async (username: string, email: string, password: string, captchaToken?: string) =>
     request<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: await secureBody({ username, email, password }),
+      body: await secureBody({ username, email, password, captchaToken }),
     }),
-  login: async (emailOrUsername: string, password: string) =>
+  login: async (emailOrUsername: string, password: string, captchaToken?: string) =>
     request<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: await secureBody({ email: emailOrUsername, password }),
+      body: await secureBody({ email: emailOrUsername, password, captchaToken }),
     }),
   pairStart: () => request<{ code: string; expiresIn: number }>('/auth/pair/start', { method: 'POST' }),
   pairWait: (code: string) =>

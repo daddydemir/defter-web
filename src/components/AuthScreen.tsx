@@ -5,6 +5,9 @@ import { Logo } from './Logo'
 import { cn } from '../lib/format'
 import QRCode from 'qrcode'
 import { Loader2, QrCode, RefreshCw } from 'lucide-react'
+import { Turnstile } from '@marsidev/react-turnstile'
+
+const siteKey = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_TURNSTILE_SITEKEY ?? '').trim() || undefined
 
 interface AuthScreenProps {
   onAuthed: (token: string, user: AuthUser) => void
@@ -18,18 +21,31 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (busy) return
+    if (siteKey && !captchaToken) {
+      setError('Lütfen robot doğrulamasını tamamlayın')
+      return
+    }
     setError(null)
     setBusy(true)
     try {
       const res =
-        mode === 'login' ? await api.login(email, password) : await api.register(username, email, password)
+        mode === 'login'
+          ? await api.login(email, password, captchaToken ?? undefined)
+          : await api.register(username, email, password, captchaToken ?? undefined)
       onAuthed(res.token, res.user)
     } catch (err) {
-      setError((err as Error).message || 'Bir şeyler ters gitti')
+      const msg = (err as Error).message || 'Bir şeyler ters gitti'
+      setError(msg)
+      if (/captcha/i.test(msg)) {
+        setCaptchaToken(null)
+        setCaptchaKey((k) => k + 1)
+      }
     } finally {
       setBusy(false)
     }
@@ -126,6 +142,19 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               />
             </label>
 
+            {siteKey && (
+              <div className="mt-4 flex justify-center">
+                <Turnstile
+                  key={captchaKey}
+                  siteKey={siteKey}
+                  onSuccess={(token) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                  options={{ theme: 'auto' }}
+                />
+              </div>
+            )}
+
             {error && (
               <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                 {error}
@@ -134,7 +163,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
 
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || (!!siteKey && !captchaToken)}
               className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {busy ? (mode === 'login' ? 'Giriş yapılıyor…' : 'Hesap oluşturuluyor…') : mode === 'login' ? 'Giriş yap' : 'Kayıt ol'}
