@@ -197,7 +197,7 @@ function AppearanceSection({
             icon={<Sun className="h-4 w-4" />}
             active={theme === 'light'}
             onClick={() => theme !== 'light' && onToggleTheme()}
-            colors={['#f7f7f8', '#ffffff', '#f1f1f3', '#4f46e5']}
+            colors={['#eef1f6', '#ffffff', '#e8ecf3', '#4f46e5']}
           />
         </div>
       </Card>
