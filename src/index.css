@@ -676,3 +676,105 @@ textarea {
   position: absolute;
   pointer-events: none;
 }
+
+/* ---------- PDF / yazdırma ---------- */
+.print-note {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 20mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111827 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .app-shell > aside,
+  .app-shell > section,
+  .app-shell > :not(.app-main) {
+    display: none !important;
+  }
+
+  .app-main,
+  .editor-shell {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .editor-shell > :not(.print-note) {
+    display: none !important;
+  }
+
+  .print-note {
+    display: block !important;
+    width: 100%;
+    color: #111827;
+    font-family: 'Inter Variable', Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.6;
+  }
+
+  .print-note > h1 {
+    margin: 0 0 10mm;
+    padding-bottom: 5mm;
+    border-bottom: 1px solid #d1d5db;
+    color: #111827;
+    font-size: 22pt;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .print-note .md-body {
+    color: #111827;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .print-note :is(h1, h2, h3, h4, h5, h6) {
+    break-after: avoid-page;
+    color: #111827;
+  }
+
+  .print-note :is(pre, blockquote, table, img) {
+    break-inside: avoid-page;
+  }
+
+  .print-note a {
+    color: #111827;
+    text-decoration: underline;
+  }
+
+  .print-note pre,
+  .print-note code,
+  .print-note th {
+    background: #f3f4f6 !important;
+  }
+
+  .print-note img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}

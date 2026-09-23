@@ -3,10 +3,12 @@ import type { Folder, Note, Tag } from '../types'
 import { cn } from '../lib/format'
 import {
   ArrowLeft,
+  Check,
   ChevronDown,
   Eye,
   Folder as FolderIcon,
   Pin,
+  Printer,
   Share2,
   SplitSquareHorizontal,
   Trash2,
@@ -75,13 +77,117 @@ function ModeButton({
 function PreviewPane({ content }: { content: string }) {
   return (
     <div className="h-full overflow-y-auto px-5 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:py-6">
-      <div className="mx-auto max-w-[46rem]">
+      <div className="mx-auto w-full max-w-[68rem]">
         {content.trim() ? (
           <Markdown>{content}</Markdown>
         ) : (
           <p className="text-sm text-sub/60">Önizleme için bir şey yazın...</p>
         )}
       </div>
+    </div>
+  )
+}
+
+function FolderSelect({
+  folders,
+  value,
+  onChange,
+}: {
+  folders: Folder[]
+  value: string | null
+  onChange: (folderId: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selectedFolder = folders.find((folder) => folder.id === value)
+
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('mousedown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('mousedown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const select = (folderId: string | null) => {
+    onChange(folderId)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          'flex h-9 max-w-52 items-center gap-2 rounded-lg border bg-surface px-2.5 text-xs font-medium text-ink shadow-sm transition-colors hover:bg-surface2 focus:outline-none focus:ring-2 focus:ring-accent/25',
+          open ? 'border-accent/60 bg-surface2' : 'border-edge',
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Klasör seç"
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+          <FolderIcon className="h-3.5 w-3.5" />
+        </span>
+        <span className="truncate">{selectedFolder?.name ?? 'Klasör yok'}</span>
+        <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-sub transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div
+          className="bubble-enter absolute left-0 top-full z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-edge bg-surface p-1.5 shadow-xl"
+          role="listbox"
+          aria-label="Klasör seç"
+        >
+          <button
+            type="button"
+            onClick={() => select(null)}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface2',
+              value === null ? 'font-medium text-accent' : 'text-ink',
+            )}
+            role="option"
+            aria-selected={value === null}
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface2 text-sub">
+              <FolderIcon className="h-3.5 w-3.5" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">Klasör yok</span>
+            {value === null && <Check className="h-3.5 w-3.5 shrink-0" />}
+          </button>
+          {folders.length > 0 && <div className="my-1 border-t border-edge/70" />}
+          <div className="max-h-56 overflow-y-auto">
+            {folders.map((folder) => (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => select(folder.id)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface2',
+                  value === folder.id ? 'font-medium text-accent' : 'text-ink',
+                )}
+                role="option"
+                aria-selected={value === folder.id}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+                  <FolderIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+                {value === folder.id && <Check className="h-3.5 w-3.5 shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -197,8 +303,22 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
   const words = draft.content.trim() ? draft.content.trim().split(/\s+/).length : 0
   const chars = draft.content.length
 
+  const printNote = useCallback(() => {
+    flushPendingSave()
+    const previousTitle = document.title
+    const printTitle = draftRef.current.title.trim() || 'Başlıksız not'
+    document.title = printTitle
+
+    const restoreTitle = () => {
+      document.title = previousTitle
+      window.removeEventListener('afterprint', restoreTitle)
+    }
+    window.addEventListener('afterprint', restoreTitle)
+    window.print()
+  }, [flushPendingSave])
+
   return (
-    <div className="screen-enter-right flex h-full min-h-0 flex-1 flex-col">
+    <div className="editor-shell screen-enter-right flex h-full min-h-0 flex-1 flex-col">
       <header className="flex items-start gap-1.5 border-b border-edge px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3">
         <button
           onClick={onBack}
@@ -250,6 +370,14 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
               {note.permission === 'edit' ? 'Düzenle' : 'Görüntüle'} · {note.sharedByUsername}
             </span>
           )}
+          <button
+            onClick={printNote}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-sub transition-colors active:bg-surface2 hover:bg-surface2 hover:text-ink"
+            aria-label="PDF olarak yazdır"
+            title="PDF olarak yazdır"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
           {isOwner && (
             <button
               onClick={() => onChange({ isPinned: !note.isPinned })}
@@ -278,23 +406,11 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
 
       {isOwner && (
         <div className="flex flex-wrap items-center gap-2 border-b border-edge/60 px-3 py-2 sm:px-6">
-        <div className="relative shrink-0">
-          <FolderIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sub" />
-          <select
-            value={note.folderId ?? ''}
-            onChange={(e) => onChange({ folderId: e.target.value || null })}
-            className="max-w-44 appearance-none truncate rounded-lg border border-edge bg-surface py-2 pl-8 pr-7 text-xs font-medium text-ink outline-none transition-colors focus:border-accent"
-            title="Klasör"
-          >
-            <option value="">Klasör yok</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sub" />
-        </div>
+        <FolderSelect
+          folders={folders}
+          value={note.folderId}
+          onChange={(folderId) => onChange({ folderId })}
+        />
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           {note.tags.map((tag) => (
@@ -378,6 +494,11 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
           />
         </div>
       </footer>
+
+      <article className="print-note" aria-hidden="true">
+        <h1>{draft.title.trim() || 'Başlıksız not'}</h1>
+        {draft.content.trim() ? <Markdown>{draft.content}</Markdown> : null}
+      </article>
 
       <ConfirmDialog
         open={confirmDelete}

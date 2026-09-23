@@ -397,7 +397,7 @@ function RichEditorInner({
 
     const editorProps = {
       attributes: {
-        class: 'tiptap mx-auto min-h-full w-full max-w-[46rem] px-5 py-6 md:px-8 md:py-8',
+        class: 'tiptap mx-auto min-h-full w-full max-w-[68rem] px-5 py-6 md:px-8 md:py-8 xl:px-10',
       },
       handleKeyDown(_view: unknown, event: KeyboardEvent) {
         const s = slashRef.current
