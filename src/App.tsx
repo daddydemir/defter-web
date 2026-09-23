@@ -225,6 +225,7 @@ export default function App() {
     let list = notes
     if (view === 'pinned') list = list.filter((n) => n.isPinned)
     if (filterFolder) list = list.filter((n) => n.folderId === filterFolder)
+    else if (view === 'all' && !filterTag) list = list.filter((n) => n.folderId === null)
     if (filterTag) list = list.filter((n) => n.tags.some((t) => t.id === filterTag))
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase()
@@ -428,7 +429,7 @@ export default function App() {
   const sidebarProps = {
     folders,
     tags,
-    noteCount: notes.length,
+    noteCount: notes.filter((note) => note.folderId === null).length,
     view,
     activeFolder: filterFolder,
     activeTag: filterTag,
@@ -533,7 +534,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-base text-ink">
+    <div className="app-shell flex h-dvh overflow-hidden bg-base text-ink">
       {sidebarOpen && (
         <MobileDrawer onClose={() => setSidebarOpen(false)}>
           <Sidebar {...sidebarProps} />
@@ -568,7 +569,7 @@ export default function App() {
         />
       </section>
 
-      <main className={cn('min-w-0 flex-1 flex-col', selectedId ? 'flex' : 'hidden sm:flex')}>
+      <main className={cn('app-main min-w-0 flex-1 flex-col', selectedId ? 'flex' : 'hidden sm:flex')}>
         {selected ? (
           <Editor
             key={selected.id}
