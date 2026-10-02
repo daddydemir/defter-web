@@ -26,7 +26,7 @@ export function TrashView({ items, onRestore, onDelete, onOpenSidebar }: Props) 
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex items-start gap-3 border-b border-edge px-4 py-4 sm:px-8">
+      <header className="flex shrink-0 items-start gap-3 border-b border-edge px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 sm:pt-4">
         <button
           onClick={onOpenSidebar}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sub hover:bg-surface2 hover:text-ink lg:hidden"
@@ -39,7 +39,7 @@ export function TrashView({ items, onRestore, onDelete, onOpenSidebar }: Props) 
           <p className="mt-1 text-xs text-sub">Silinen notlar kayıpsız olarak sıkıştırılır ve buradan geri yüklenebilir.</p>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-8">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:p-8">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sub">
             <Trash2 className="h-10 w-10 opacity-30" />
