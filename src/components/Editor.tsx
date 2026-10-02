@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Eye,
   Folder as FolderIcon,
+  Maximize2,
+  Minimize2,
   Pin,
   Printer,
   Share2,
@@ -198,6 +200,7 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
   const [tagInput, setTagInput] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [readingFullscreen, setReadingFullscreen] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
 
   const readOnly = note.permission === 'view'
@@ -303,6 +306,20 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
   const words = draft.content.trim() ? draft.content.trim().split(/\s+/).length : 0
   const chars = draft.content.length
 
+  const toggleReadingFullscreen = useCallback(() => {
+    if (!readingFullscreen) setMode('preview')
+    setReadingFullscreen((current) => !current)
+  }, [readingFullscreen])
+
+  useEffect(() => {
+    if (!readingFullscreen) return
+    const exitOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setReadingFullscreen(false)
+    }
+    window.addEventListener('keydown', exitOnEscape)
+    return () => window.removeEventListener('keydown', exitOnEscape)
+  }, [readingFullscreen])
+
   const printNote = useCallback(() => {
     flushPendingSave()
     const previousTitle = document.title
@@ -318,7 +335,12 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
   }, [flushPendingSave])
 
   return (
-    <div className="editor-shell screen-enter-right flex h-full min-h-0 flex-1 flex-col">
+    <div
+      className={cn(
+        'editor-shell screen-enter-right flex h-full min-h-0 flex-1 flex-col bg-base',
+        readingFullscreen && 'fixed inset-0 z-[60] h-dvh',
+      )}
+    >
       <header className="flex items-start gap-1.5 border-b border-edge px-3 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3">
         <button
           onClick={onBack}
@@ -377,6 +399,15 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
             title="PDF olarak yazdır"
           >
             <Printer className="h-4 w-4" />
+          </button>
+          <button
+            onClick={toggleReadingFullscreen}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-sub transition-colors active:bg-surface2 hover:bg-surface2 hover:text-ink"
+            aria-label={readingFullscreen ? 'Tam ekran okumadan çık' : 'Tam ekran oku'}
+            title={readingFullscreen ? 'Tam ekrandan çık' : 'Tam ekran oku'}
+            aria-pressed={readingFullscreen}
+          >
+            {readingFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
           {isOwner && (
             <button
@@ -502,8 +533,8 @@ export function Editor({ note, folders, tags, onChange, onDelete, onBack, onCrea
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Sil onaylı?"
-        message={`Bu notu kalıcı olarak sileceksiniz. "${note.title || 'Başlıksız'}"`}
+        title="Çöp kutusuna taşınsın mı?"
+        message={`“${note.title || 'Başlıksız'}” çöp kutusuna taşınacak ve daha sonra geri yüklenebilecek.`}
         onConfirm={() => {
           setConfirmDelete(false)
           onDelete(note)

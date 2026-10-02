@@ -33,7 +33,17 @@ export interface PublicNote {
   username: string
 }
 
-export type View = 'all' | 'pinned'
+export type View = 'all' | 'pinned' | 'trash'
+
+export interface TrashItem {
+  id: string
+  originalId: string
+  type: 'note'
+  title: string
+  originalSize: number
+  compressedSize: number
+  deletedAt: string
+}
 
 export type Permission = 'view' | 'edit'
 

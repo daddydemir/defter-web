@@ -273,7 +273,12 @@ function baseExtensions(collab: boolean) {
     }),
     CodeBlockLowlight.configure({ lowlight, languageClassPrefix: 'language-' }),
     Underline,
-    Link.configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
+    Link.configure({
+      openOnClick: true,
+      autolink: true,
+      defaultProtocol: 'https',
+      HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' },
+    }),
     TaskList,
     TaskItem.configure({ nested: true }),
     ResizableImage.configure({ resize: { enabled: true, alwaysPreserveAspectRatio: true } }),

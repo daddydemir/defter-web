@@ -50,7 +50,14 @@ export function Markdown({ children }: { children: string }) {
           [rehypeKatex, { throwOnError: false, strict: false }],
           [rehypeHighlight, { detect: true, plainText: ['text', 'txt', 'plain'] }],
         ]}
-        components={{ pre: CodeBlock }}
+        components={{
+          pre: CodeBlock,
+          a: ({ children: linkChildren, node: _node, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer">
+              {linkChildren}
+            </a>
+          ),
+        }}
       >
         {children || ''}
       </ReactMarkdown>

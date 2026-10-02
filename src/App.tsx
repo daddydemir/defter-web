@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api'
-import type { Folder, Note, Tag, View } from './types'
+import type { Folder, Note, Tag, TrashItem, View } from './types'
 import { useDebouncedValue } from './lib/useDebouncedValue'
 import { useIsMobile } from './lib/useMediaQuery'
 import { cn } from './lib/format'
@@ -19,6 +19,7 @@ import { DeveloperPage } from './components/DeveloperPage'
 import { PublicNote } from './components/PublicNote'
 import { PairApprovePage } from './components/PairApprovePage'
 import { QrScannerDialog } from './components/QrScannerDialog'
+import { TrashView } from './components/TrashView'
 import { X } from 'lucide-react'
 
 type Theme = 'dark' | 'light'
@@ -36,6 +37,7 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
   const [tags, setTags] = useState<Tag[]>([])
+  const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -74,6 +76,7 @@ export default function App() {
     setNotes([])
     setFolders([])
     setTags([])
+    setTrashItems([])
     setSelectedId(null)
     setSidebarOpen(false)
     setFilterFolder(null)
@@ -115,14 +118,16 @@ export default function App() {
   }, [auth, logout])
 
   const reload = useCallback(async () => {
-    const [noteList, folderList, tagList] = await Promise.all([
+    const [noteList, folderList, tagList, trashList] = await Promise.all([
       api.listNotes(),
       api.listFolders(),
       api.listTags(),
+      api.listTrash(),
     ])
     setNotes(noteList)
     setFolders(folderList)
     setTags(tagList)
+    setTrashItems(trashList)
   }, [])
 
   useEffect(() => {
@@ -358,6 +363,8 @@ export default function App() {
       try {
         await api.deleteNote(note.id)
         setNotes((list) => list.filter((n) => n.id !== note.id))
+        const trashList = await api.listTrash()
+        setTrashItems(trashList)
         setSelectedId((id) => (id === note.id ? null : id))
       } catch (err) {
         setError((err as Error).message)
@@ -365,6 +372,27 @@ export default function App() {
     },
     [],
   )
+
+  const restoreTrashItem = useCallback(async (item: TrashItem) => {
+    try {
+      const { noteId } = await api.restoreTrashItem(item.id)
+      setTrashItems((list) => list.filter((x) => x.id !== item.id))
+      await reload()
+      setView('all')
+      setSelectedId(noteId)
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }, [reload])
+
+  const permanentlyDeleteTrashItem = useCallback(async (item: TrashItem) => {
+    try {
+      await api.permanentlyDeleteTrashItem(item.id)
+      setTrashItems((list) => list.filter((x) => x.id !== item.id))
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }, [])
 
   const setNoteShareToken = useCallback((id: string, token: string | null) => {
     setNotes((list) => list.map((n) => (n.id === id ? { ...n, shareToken: token } : n)))
@@ -430,6 +458,7 @@ export default function App() {
     folders,
     tags,
     noteCount: notes.filter((note) => note.folderId === null).length,
+    trashCount: trashItems.length,
     view,
     activeFolder: filterFolder,
     activeTag: filterTag,
@@ -545,47 +574,60 @@ export default function App() {
         <Sidebar {...sidebarProps} />
       </aside>
 
-      <section
-        className={cn(
-          'relative flex min-w-0 flex-col border-r border-edge',
-          selectedId ? 'hidden sm:flex' : 'flex',
-          'w-full sm:w-72 lg:w-80 lg:shrink-0',
-        )}
-      >
-        <NoteList
-          notes={filtered}
-          selectedId={selectedId}
-          search={search}
-          onSearchChange={setSearch}
-          hasFilters={hasFilters}
-          onClearFilters={clearFilters}
-          onSelect={onSelectNote}
-          onNewNote={createNote}
-          onOpenSidebar={openSidebar}
-          onOpenFriends={() => openFriends('friends')}
-          friendReqCount={friendReqCount}
-          folders={folders}
-          onMoveToFolder={(id, folderId) => updateNote(id, { folderId })}
-        />
-      </section>
-
-      <main className={cn('app-main min-w-0 flex-1 flex-col', selectedId ? 'flex' : 'hidden sm:flex')}>
-        {selected ? (
-          <Editor
-            key={selected.id}
-            note={selected}
-            folders={folders}
-            tags={tags}
-            onChange={(patch) => updateNote(selected.id, patch)}
-            onDelete={deleteNote}
-            onBack={() => setSelectedId(null)}
-            onCreateTag={createTag}
-            onShareTokenChange={(token) => setNoteShareToken(selected.id, token)}
+      {view === 'trash' ? (
+        <main className="app-main flex min-w-0 flex-1 flex-col">
+          <TrashView
+            items={trashItems}
+            onRestore={restoreTrashItem}
+            onDelete={permanentlyDeleteTrashItem}
+            onOpenSidebar={openSidebar}
           />
-        ) : (
-          <EmptyState onCreate={createNote} hasFilters={hasFilters} onClear={clearFilters} />
-        )}
-      </main>
+        </main>
+      ) : (
+        <>
+          <section
+            className={cn(
+              'relative flex min-w-0 flex-col border-r border-edge',
+              selectedId ? 'hidden sm:flex' : 'flex',
+              'w-full sm:w-72 lg:w-80 lg:shrink-0',
+            )}
+          >
+            <NoteList
+              notes={filtered}
+              selectedId={selectedId}
+              search={search}
+              onSearchChange={setSearch}
+              hasFilters={hasFilters}
+              onClearFilters={clearFilters}
+              onSelect={onSelectNote}
+              onNewNote={createNote}
+              onOpenSidebar={openSidebar}
+              onOpenFriends={() => openFriends('friends')}
+              friendReqCount={friendReqCount}
+              folders={folders}
+              onMoveToFolder={(id, folderId) => updateNote(id, { folderId })}
+            />
+          </section>
+
+          <main className={cn('app-main min-w-0 flex-1 flex-col', selectedId ? 'flex' : 'hidden sm:flex')}>
+            {selected ? (
+              <Editor
+                key={selected.id}
+                note={selected}
+                folders={folders}
+                tags={tags}
+                onChange={(patch) => updateNote(selected.id, patch)}
+                onDelete={deleteNote}
+                onBack={() => setSelectedId(null)}
+                onCreateTag={createTag}
+                onShareTokenChange={(token) => setNoteShareToken(selected.id, token)}
+              />
+            ) : (
+              <EmptyState onCreate={createNote} hasFilters={hasFilters} onClear={clearFilters} />
+            )}
+          </main>
+        </>
+      )}
 
       {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
 

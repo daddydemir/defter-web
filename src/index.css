@@ -718,6 +718,8 @@ textarea {
   .app-main,
   .editor-shell {
     display: block !important;
+    position: static !important;
+    inset: auto !important;
     width: 100% !important;
     height: auto !important;
     overflow: visible !important;

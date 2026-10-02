@@ -18,6 +18,7 @@ import type {
   ShareAnalytics,
   ShareEntry,
   Tag,
+  TrashItem,
 } from './types'
 import type { AuthUser } from './lib/auth'
 import { getToken } from './lib/auth'
@@ -106,6 +107,11 @@ export const api = {
   updateNote: (id: string, data: NotePatch) =>
     request<Note>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
+
+  listTrash: () => request<TrashItem[]>('/trash'),
+  restoreTrashItem: (id: string) =>
+    request<{ restored: boolean; noteId: string }>(`/trash/${id}/restore`, { method: 'POST' }),
+  permanentlyDeleteTrashItem: (id: string) => request<void>(`/trash/${id}`, { method: 'DELETE' }),
 
   listFolders: () => request<Folder[]>('/folders'),
   createFolder: (name: string) => request<Folder>('/folders', { method: 'POST', body: JSON.stringify({ name }) }),

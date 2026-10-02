@@ -28,6 +28,7 @@ interface SidebarProps {
   folders: Folder[]
   tags: Tag[]
   noteCount: number
+  trashCount: number
   view: View
   activeFolder: string | null
   activeTag: string | null
@@ -60,6 +61,7 @@ export function Sidebar(props: SidebarProps) {
     folders,
     tags,
     noteCount,
+    trashCount,
     view,
     activeFolder,
     activeTag,
@@ -131,6 +133,18 @@ export function Sidebar(props: SidebarProps) {
           active={view === 'pinned'}
           onClick={() => {
             onSelectView(view === 'pinned' ? 'all' : 'pinned')
+            onNavigate()
+          }}
+        />
+        <NavItem
+          icon={<Trash2 className="h-4 w-4" />}
+          label="Çöp kutusu"
+          count={trashCount}
+          active={view === 'trash'}
+          onClick={() => {
+            onSelectView('trash')
+            onSelectFolder(null)
+            onSelectTag(null)
             onNavigate()
           }}
         />
