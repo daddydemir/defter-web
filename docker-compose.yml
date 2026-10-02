@@ -5,6 +5,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_TURNSTILE_SITEKEY: ${VITE_TURNSTILE_SITEKEY:-}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-35804}:80"
+    networks:
+      - defter-network
+
+networks:
+  defter-network:
+    external: true
