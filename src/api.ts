@@ -24,7 +24,8 @@ import type { AuthUser } from './lib/auth'
 import { getToken } from './lib/auth'
 import { canEncrypt, encryptPayload } from './lib/crypto'
 
-const BASE = '/api'
+// const BASE = '/api'
+const BASE = import.meta.env.VITE_API_URL + '/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined
